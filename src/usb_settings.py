@@ -6,6 +6,7 @@ import time
 import shutil
 from config import LOG_DIR
 
+log = logging.getLogger(__name__)
 
 LOCAL_LOG_DIR = LOG_DIR
 
@@ -31,11 +32,11 @@ def _log_to_targets(message: str, targets):
                 f.flush()
                 os.fsync(f.fileno())   # force write to media
         except Exception as e:
-            logging.warning(f"[LOG WRITE FAILED] {path}: {e}")
+            log.warning(f"[LOG WRITE FAILED] {path}: {e}")
 
 def log_override_change(state: bool, source: str = "runtime"):
     """Log an override change to both local and USB logs."""
-    logging.info(f"[LOG] override_change -> state={state} source={source}")
+    log.info(f"[LOG] override_change -> state={state} source={source}")
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"{timestamp} - Override {'ON' if state else 'OFF'} (source={source})"
     _log_to_targets(line, [LOCAL_OVERRIDE_LOG, OVERRIDE_LOG_FILE])
@@ -57,7 +58,7 @@ def load_zero_offset():
             setpoints = json.load(f)
             return setpoints.get("zero_offset_ft", 0.0)
     except Exception as e:
-        logging.error(f"Failed to load zero offset: {e}")
+        log.error(f"Failed to load zero offset: {e}")
         return 0.0
 
 def save_zero_offset(offset_ft):
@@ -73,9 +74,9 @@ def save_zero_offset(offset_ft):
             setpoints["zero_offset_ft"] = offset_ft
             setpoints["ZERO_OFFSET"] = offset_ft
             save_setpoints(setpoints)
-            logging.info(f"[ZERO] Saved zero offset {offset_ft:.2f} ft to setpoints.json")
+            log.info(f"[ZERO] Saved zero offset {offset_ft:.2f} ft to setpoints.json")
     except Exception as e:
-        logging.error(f"Failed to save zero offset: {e}")
+        log.error(f"Failed to save zero offset: {e}")
 
 def load_setpoints():
     """Load setpoints from the USB key."""
@@ -117,7 +118,7 @@ def save_setpoints(setpoints):
 
     # Only proceed if there is a change
     if full_setpoints != old_setpoints:
-        logging.info("[USB] Setpoints changed. Updating...")
+        log.info("[USB] Setpoints changed. Updating...")
 
         if now - last_write_time > 10:
             _log_to_targets(
@@ -134,15 +135,15 @@ def save_setpoints(setpoints):
             # After writing to USB, mirror to the local copy
             try:
                 shutil.copy2(SETPOINTS_FILE, LOCAL_SETPOINTS_FILE)
-                logging.info("[SYNC] Mirrored updated setpoints to local copy.")
+                log.info("[SYNC] Mirrored updated setpoints to local copy.")
             except Exception as e:
-                logging.error(f"[SYNC] Failed to copy setpoints to local: {e}")
+                log.error(f"[SYNC] Failed to copy setpoints to local: {e}")
 
         except Exception as e:
-            logging.error(f"Failed to update setpoints.json: {e}")
+            log.error(f"Failed to update setpoints.json: {e}")
 
     else:
-        logging.debug("[USB] No change in setpoints.")
+        log.debug("[USB] No change in setpoints.")
 
 
 
@@ -174,7 +175,7 @@ def sync_usb_to_local():
     """
     try:
         if not os.path.exists(SETPOINTS_FILE):
-            logging.info("[SYNC] No USB setpoints file found; skipping sync.")
+            log.info("[SYNC] No USB setpoints file found; skipping sync.")
             return False
 
         usb_mtime = os.path.getmtime(SETPOINTS_FILE)
@@ -182,12 +183,12 @@ def sync_usb_to_local():
 
         if usb_mtime > local_mtime:
             shutil.copy2(SETPOINTS_FILE, LOCAL_SETPOINTS_FILE)
-            logging.info("[SYNC] Copied newer USB setpoints to local file.")
+            log.info("[SYNC] Copied newer USB setpoints to local file.")
             return True
         else:
-            logging.debug("[SYNC] Local setpoints already up to date.")
+            log.debug("[SYNC] Local setpoints already up to date.")
     except Exception as e:
-        logging.error(f"[SYNC] Failed to sync USB→local: {e}")
+        log.error(f"[SYNC] Failed to sync USB→local: {e}")
     return False
 
 
@@ -205,10 +206,10 @@ def sync_local_to_usb():
 
         if local_mtime > usb_mtime:
             shutil.copy2(LOCAL_SETPOINTS_FILE, SETPOINTS_FILE)
-            logging.info("[SYNC] Copied newer local setpoints to USB.")
+            log.info("[SYNC] Copied newer local setpoints to USB.")
             return True
     except Exception as e:
-        logging.error(f"[SYNC] Failed to sync local→USB: {e}")
+        log.error(f"[SYNC] Failed to sync local→USB: {e}")
     return False
 
 

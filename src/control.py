@@ -5,6 +5,8 @@ import RPi.GPIO as GPIO
 from usb_settings import log_override_change
 from config import (ALARM_RELAY_PIN, LOCAL_ROOT_DIR)
 
+log = logging.getLogger(__name__)
+
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(ALARM_RELAY_PIN, GPIO.OUT)
@@ -52,9 +54,9 @@ def toggle_override(state: bool):
         with open(OVERRIDE_FILE, "w") as f:
             f.write("1" if state else "0")
         log_override_change(state, source="downlink")
-        logging.info(f"[CONTROL] Override {'ON' if state else 'OFF'} via toggle_override()")
+        log.info(f"[CONTROL] Override {'ON' if state else 'OFF'} via toggle_override()")
     except Exception as e:
-        logging.error(f"[CONTROL] Failed to toggle override: {e}")
+        log.error(f"[CONTROL] Failed to toggle override: {e}")
 
 def is_override_active() -> bool:
     """
@@ -66,7 +68,7 @@ def is_override_active() -> bool:
     except FileNotFoundError:
         return override_flag
     except Exception as e:
-        logging.error(f"[CONTROL] Failed to read override flag: {e}")
+        log.error(f"[CONTROL] Failed to read override flag: {e}")
         return override_flag
 
 def set_override_flag(state: bool):
@@ -80,7 +82,7 @@ def set_override_flag(state: bool):
     try:
         log_override_change(state, source="runtime")
     except Exception as e:
-        logging.error(f"Failed to log override change: {e}")
+        log.error(f"Failed to log override change: {e}")
 
 # ---------------------------------------------------------------------------
 # ALARM LIGHT
@@ -96,9 +98,9 @@ def set_alarm_light(state: bool) -> None:
 
     try:
         GPIO.output(ALARM_RELAY_PIN, GPIO.HIGH if state else GPIO.LOW)
-        logging.info(f"[ALARM] Alarm {'ON' if state else 'OFF'} (GPIO17)")
+        log.info(f"[ALARM] Alarm {'ON' if state else 'OFF'} (GPIO17)")
     except Exception as e:
-        logging.error(f"Failed to set alarm light: {e}")
+        log.error(f"Failed to set alarm light: {e}")
 
 # ---------------------------------------------------------------------------
 # ALARM HELPERS
@@ -106,5 +108,5 @@ def set_alarm_light(state: bool) -> None:
 
 def check_hi_alarm(depth, hi_alarm_setpoint):
     triggered = depth > hi_alarm_setpoint
-    logging.debug(f"[ALARM EVAL] Depth={depth}, HI_ALARM={hi_alarm_setpoint}, Triggered={triggered}")
+    log.debug(f"[ALARM EVAL] Depth={depth}, HI_ALARM={hi_alarm_setpoint}, Triggered={triggered}")
     return triggered

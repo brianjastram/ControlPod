@@ -12,9 +12,11 @@ from telemetry import read_depth
 from usb_settings import save_zero_offset, load_setpoints, save_setpoints
 from main import chan
 
+log  = logging.getLogger(__name__)
+
 def decode_downlink_payload(raw):
     if raw is None:
-        logging.warning("No downlink message received.")
+        log.warning("No downlink message received.")
         return None
 
     raw = raw.strip()
@@ -27,7 +29,7 @@ def decode_downlink_payload(raw):
 
     # Validate payload as hex string
     if not all(c in "0123456789abcdefABCDEF" for c in raw):
-        logging.warning(f"Unexpected downlink message: {raw}")
+        log.warning(f"Unexpected downlink message: {raw}")
         return None
 
     return raw
@@ -46,7 +48,7 @@ def process_downlink_command(raw_downlink):
     """
 
     if not raw_downlink:
-        logging.warning(f"Empty downlink message: {raw_downlink}")
+        log.warning(f"Empty downlink message: {raw_downlink}")
         return
 
     try:
@@ -55,12 +57,12 @@ def process_downlink_command(raw_downlink):
         # --- Handle binary downlink (00 or 01) ---
         if downlink == "00":
             toggle_override(True)
-            logging.info("[COMMAND] 00 - Manual override ON")
+            log.info("[COMMAND] 00 - Manual override ON")
             return
 
         if downlink == "01":
             toggle_override(False)
-            logging.info("[COMMAND] 01 - Manual override OFF")
+            log.info("[COMMAND] 01 - Manual override OFF")
             return
 
 
@@ -71,27 +73,27 @@ def process_downlink_command(raw_downlink):
             if len(downlink) % 2 == 0 and all(c in "0123456789ABCDEFabcdef" for c in raw_downlink):
                 decoded = bytes.fromhex(downlink).decode("utf-8", errors="ignore").strip().upper()
                 ascii_command = decoded
-                logging.info(f"[COMMAND] ASCII decoded downlink: {ascii_command}")
+                log.info(f"[COMMAND] ASCII decoded downlink: {ascii_command}")
         except Exception:
             pass  # not hex or failed to decode
 
         # --- Fall back to treating raw string as ASCII if no hex decode worked ---
         if not ascii_command:
             ascii_command = downlink.upper()
-            logging.info(f"[COMMAND] Interpreting raw ASCII downlink: {ascii_command}")
+            log.info(f"[COMMAND] Interpreting raw ASCII downlink: {ascii_command}")
 
         # --- Command routing ---
         if ascii_command == "STOP":
             toggle_override(True)
-            logging.info("Executed command: STOP -> Pump OFF, override enabled")
+            log.info("Executed command: STOP -> Pump OFF, override enabled")
 
         elif ascii_command == "START":
             toggle_override(False)
-            logging.info("Executed command: START -> Pump ON, override cleared")
+            log.info("Executed command: START -> Pump ON, override cleared")
 
         elif ascii_command == "ZERO":
             calibrate_zero_offset()
-            logging.info("Executed command: ZERO -> Depth zero calibrated")
+            log.info("Executed command: ZERO -> Depth zero calibrated")
         else:
             split_ascii_command = ascii_command.split("=")
             if len(split_ascii_command) == 2:
@@ -110,18 +112,18 @@ def process_downlink_command(raw_downlink):
                 elif command_name == "SETLOALARM":
                     update_setpoints("LO_ALARM", command_value)
                 else:
-                    logging.error(f"[COMMAND] Invalid downlink command: {ascii_command}")
+                    log.error(f"[COMMAND] Invalid downlink command: {ascii_command}")
             else:
-                logging.error(f"[COMMAND] Unexpected downlink message: {ascii_command}")
+                log.error(f"[COMMAND] Unexpected downlink message: {ascii_command}")
 
     except Exception as e:
-        logging.error(f"[ERROR] Failed to process downlink command '{raw_downlink}': {e}")
+        log.error(f"[ERROR] Failed to process downlink command '{raw_downlink}': {e}")
 
 
 # Helper function to call the override toggle logic
 def toggle_override(state):
     set_override_flag(state)
-    logging.info(f"[OVERRIDE] set to {state}")
+    log.info(f"[OVERRIDE] set to {state}")
 
     """
     Update system override flag and log the state.
@@ -142,21 +144,21 @@ def calibrate_zero_offset():
             if chan is not None:
                 depth_telemetry = read_depth(chan)
                 depth = depth_telemetry.depth
-                logging.info("[ZERO] Using telemetry.read_depth(chan)")
+                log.info("[ZERO] Using telemetry.read_depth(chan)")
             else:
                 raise RuntimeError("No ADS1115 channel detected")
         except Exception as hw_error:
             # Fallback path (simulation)
-            logging.info(f"[ZERO] Hardware depth read failed ({hw_error}); using simulated depth = 0.0 ft")
+            log.info(f"[ZERO] Hardware depth read failed ({hw_error}); using simulated depth = 0.0 ft")
             depth = 0.0
 
         # Save using the USB settings handler
         save_zero_offset(depth)
 
-        logging.info(f"[ZERO] Calibrated zero offset to {depth:.2f} ft")
+        log.info(f"[ZERO] Calibrated zero offset to {depth:.2f} ft")
 
     except Exception as e:
-        logging.error(f"[ZERO] Failed to calibrate zero offset: {e}")
+        log.error(f"[ZERO] Failed to calibrate zero offset: {e}")
 
 def check_downlink_response(rak):
     """
@@ -166,17 +168,17 @@ def check_downlink_response(rak):
     try:
         downlink = rak.check_downlink()
         if not downlink:
-            logging.debug("[DOWNLINK] No new downlink received.")
+            log.debug("[DOWNLINK] No new downlink received.")
             return False
 
-        logging.info(f"[DOWNLINK] Received downlink payload: {downlink}")
+        log.info(f"[DOWNLINK] Received downlink payload: {downlink}")
 
         # process_downlink_command() should handle all valid commands
         changed = process_downlink_command(downlink)
         return bool(changed)
 
     except Exception as e:
-        logging.error(f"[DOWNLINK] Error while checking downlink: {e}")
+        log.error(f"[DOWNLINK] Error while checking downlink: {e}")
         return False
 
 
@@ -192,6 +194,6 @@ def update_setpoints(key, value):
         setpoints[key] = value
         save_setpoints(setpoints)
     except ValueError:
-        logging.warning(f"[COMMAND] Invalid {key} value: {value}")
+        log.warning(f"[COMMAND] Invalid {key} value: {value}")
     except Exception as e:
-        logging.error(f"Failed to update setpoint {key} to {value}: {e}")
+        log.error(f"Failed to update setpoint {key} to {value}: {e}")
