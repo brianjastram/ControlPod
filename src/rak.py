@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 # RAK helpers
 # ---------------------------------------------------------------------------
 
-def reconnect_rak():
+def connect():
     """
     Connect to the RAK3172 on /dev/rak and try to ensure it is joined.
 

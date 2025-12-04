@@ -29,70 +29,34 @@ from config import (
     READ_INTERVAL_SECONDS,
     ALARM_GPIO_PIN
 )
+from src.model.rak_dummy import DummyRAK
 
 from telemetry import read_depth
 from usb_settings import sync_usb_to_local, load_setpoints
 from downlink import process_downlink_command
 from control import is_override_active
-import rak
+import rak as rak_service
 import relay
 
-chan = None
+analog_input_channel = None
 
 logger.setupLogging()
 log = logging.getLogger(__name__)
-
-
 
 # ---------------------------------------------------------------------------
 # Global RAK instance + Dummy for bench
 # ---------------------------------------------------------------------------
 
-rak = rak.reconnect_rak()
+rak = rak_service.connect()
 if rak is None:
-    class DummyRAK:
-        def __init__(self):
-            self._downlink = None
-
-        def send_data(self, payload):
-            log.info(f"[SIM] uplink sent (simulated)")
-            return "SIM_OK"
-
-        def check_downlink(self):
-            if self._downlink:
-                dl = self._downlink
-                self._downlink = None
-                return dl
-            return None
-
-        def inject(self, hex_payload: str):
-            log.info(f"[SIM] Injected downlink payload: {hex_payload}")
-            self._downlink = hex_payload
-
     rak = DummyRAK()
-
-
-def inject_downlink(hex_payload: str):
-    """
-    Bench helper: inject a hex payload as if it arrived from RAK.
-
-    Example:
-        inject_downlink("53455453544152543D302E3535")  # SETSTART=0.55
-        inject_downlink("30")                          # override OFF (ASCII '0')
-        inject_downlink("31")                          # override ON  (ASCII '1')
-    """
-    global rak
-    try:
-        rak.inject(hex_payload)
-    except Exception:
-        log.error("inject_downlink() called but DummyRAK is not active.")
 
 # ---------------------------------------------------------------------------
 # MAIN CONTROL LOOP
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    global rak, chan
+    global rak, analog_input_channel
     print("Starting MCTL3 with RAK3172...")
 
     # ----------------- GPIO -----------------
@@ -105,11 +69,11 @@ def main() -> None:
     try:
         i2c = busio.I2C(board.SCL, board.SDA)
         ads = ADS.ADS1115(i2c)
-        chan = AnalogIn(ads, 0)  # single-ended channel 0
+        analog_input_channel = AnalogIn(ads, 0)  # single-ended channel 0
         log.info("ADS1115 detected on I2C bus.")
     except Exception as e:
         ads = None
-        chan = None
+        analog_input_channel = None
         log.error(f"[SIM] No ADS1115 detected ({e}); using simulated depth readings.")
 
     # ----------------- Pump + alarms state -----------------
@@ -161,7 +125,7 @@ def main() -> None:
         # ----------------------------------------------------------
         try:
             # read_depth is expected to return (depth_ft, mA, voltage)
-            depth, mA, voltage = read_depth(chan)
+            depth, mA, voltage = read_depth(analog_input_channel)
             log.info(
                 f"[MEASURE] depth={depth:.2f} ft  mA={mA:.3f}  V={voltage:.3f}"
             )
