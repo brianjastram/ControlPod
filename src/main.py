@@ -28,24 +28,27 @@ from adafruit_ads1x15.analog_in import AnalogIn
 import RPi.GPIO as GPIO
 
 from config import (
+    LOG_DIR,
     DEVICE_NAME,
     MAX_RETRIES,
     INTERVAL_MINUTES,
     READ_INTERVAL_SECONDS,
+    RELAY_DEV,
+    ALARM_GPIO_PIN
 )
 
 from telemetry import read_depth
 from usb_settings import sync_usb_to_local, load_setpoints
 from downlink import process_downlink_command
 from control import is_override_active
-import control
 from rak3172_comm import RAK3172Communicator
+
+chan = None
 
 # ---------------------------------------------------------------------------
 # Logging setup
 # ---------------------------------------------------------------------------
 
-LOG_DIR = "/home/pi/logs"
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_FILE = os.path.join(LOG_DIR, "main.py.log")
 
@@ -61,15 +64,6 @@ logging.basicConfig(
     level=logging.INFO,
     handlers=[stream_handler, file_handler],
 )
-
-# ---------------------------------------------------------------------------
-# Hardware constants
-# ---------------------------------------------------------------------------
-
-# We now talk directly to the Numato relay on /dev/ttyACM0 everywhere.
-RELAY_DEV = "/dev/ttyACM0"
-
-ALARM_GPIO_PIN = 17           # Panel alarm LED
 
 # ---------------------------------------------------------------------------
 # Relay helpers
@@ -296,7 +290,7 @@ def inject_downlink(hex_payload: str):
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    global rak
+    global rak, chan
     print("Starting MCTL3 with RAK3172...")
 
     # ----------------- GPIO -----------------
@@ -391,10 +385,10 @@ def main() -> None:
 
         # ---------- Downlink ----------
         try:
-            dl = rak.check_downlink() 
-            if dl:
-                logging.info(f"[DOWNLINK] Received raw: {dl}")
-                process_downlink_command(dl)
+            downlink_command = rak.check_downlink()
+            if downlink_command:
+                logging.info(f"[DOWNLINK] Received raw: {downlink_command}")
+                process_downlink_command(downlink_command)
                 # Reload setpoints after any downlink
                 try:
                     current_setpoints = load_setpoints()

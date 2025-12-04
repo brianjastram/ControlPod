@@ -1,6 +1,8 @@
 # FILE: telemetry.py
 
 import logging
+
+from depth_telemetry import DepthTelemetry
 from config import RESISTOR_OHMS, MAX_DEPTH_FT, DEPTH_SCALING_FACTOR
 
 def read_depth(chan):
@@ -52,4 +54,4 @@ def read_depth(chan):
 
     # main.py expects exactly this shape:
     #   depth, mA, voltage
-    return depth, mA_clamped, voltage
+    return DepthTelemetry(depth, mA_clamped, voltage)

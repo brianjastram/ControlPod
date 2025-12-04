@@ -1,30 +1,27 @@
 # FILE: control.py
 
 import logging
-from datetime import datetime
-import os
 import RPi.GPIO as GPIO
-from usb_settings import SETPOINTS_FILE
-
-# Ensure logs directory exists
-if not os.path.exists("/home/pi/logs/"):
-    os.makedirs("/home/pi/logs/")
+from usb_settings import log_override_change
+from config import (ALARM_RELAY_PIN, LOCAL_ROOT_DIR)
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
-ALARM_RELAY_PIN = 17
 GPIO.setup(ALARM_RELAY_PIN, GPIO.OUT)
+
+OVERRIDE_FILE = LOCAL_ROOT_DIR + "/control_pod/override_flag.txt"
 
 # ---------------------------------------------------------------------------
 # OVERRIDE FLAG (persistent)
 # ---------------------------------------------------------------------------
 override_flag = False
-OVERRIDE_FILE = "/home/pi/control_pod/override_flag.txt"
 
 # ---------------------------------------------------------------------------
 # PUMP STATE (in-memory only, replaces unreliable relay-read)
 # ---------------------------------------------------------------------------
 pump_on_state = False
+
+_alarm_state = False
 
 def set_pump_state(state: bool):
     """
@@ -54,8 +51,6 @@ def toggle_override(state: bool):
     try:
         with open(OVERRIDE_FILE, "w") as f:
             f.write("1" if state else "0")
-
-        from usb_settings import log_override_change
         log_override_change(state, source="downlink")
         logging.info(f"[CONTROL] Override {'ON' if state else 'OFF'} via toggle_override()")
     except Exception as e:
@@ -83,7 +78,6 @@ def set_override_flag(state: bool):
         return
     override_flag = state
     try:
-        from usb_settings import log_override_change
         log_override_change(state, source="runtime")
     except Exception as e:
         logging.error(f"Failed to log override change: {e}")
@@ -91,8 +85,6 @@ def set_override_flag(state: bool):
 # ---------------------------------------------------------------------------
 # ALARM LIGHT
 # ---------------------------------------------------------------------------
-
-_alarm_state = False
 
 def set_alarm_light(state: bool) -> None:
     global _alarm_state

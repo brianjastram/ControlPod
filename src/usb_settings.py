@@ -4,11 +4,10 @@ import logging
 from datetime import datetime
 import time
 import shutil
+from config import LOG_DIR
 
 
-LOCAL_LOG_DIR = "/home/pi/logs"
-if not os.path.exists(LOCAL_LOG_DIR):
-    os.makedirs(LOCAL_LOG_DIR)
+LOCAL_LOG_DIR = LOG_DIR
 
 LOCAL_OVERRIDE_LOG = os.path.join(LOCAL_LOG_DIR, "override_log.txt")
 LOCAL_SETTINGS_LOG = os.path.join(LOCAL_LOG_DIR, "settings_log.txt")
@@ -25,7 +24,7 @@ def _log_to_targets(message: str, targets):
         try:
             parent = os.path.dirname(path)
             # only ensure local directory; USB root should already exist
-            if parent and parent.startswith("/home/pi/logs"):
+            if parent and parent.startswith(LOCAL_LOG_DIR):
                 os.makedirs(parent, exist_ok=True)
             with open(path, "a") as f:
                 f.write(message + "\n")
