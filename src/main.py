@@ -41,7 +41,7 @@ from telemetry import read_depth
 from usb_settings import sync_usb_to_local, load_setpoints
 from downlink import process_downlink_command
 from control import is_override_active
-from rak3172_comm import RAK3172Communicator
+from model.rak3172_comm import RAK3172Communicator
 
 chan = None
 

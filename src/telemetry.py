@@ -2,7 +2,7 @@
 
 import logging
 
-from depth_telemetry import DepthTelemetry
+from model.depth_telemetry import DepthTelemetry
 from config import RESISTOR_OHMS, MAX_DEPTH_FT, DEPTH_SCALING_FACTOR
 
 def read_depth(chan):

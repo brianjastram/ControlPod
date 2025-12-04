@@ -8,8 +8,8 @@ from config import (ALARM_RELAY_PIN, LOCAL_ROOT_DIR)
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(ALARM_RELAY_PIN, GPIO.OUT)
-
-OVERRIDE_FILE = LOCAL_ROOT_DIR + "/control_pod/override_flag.txt"
+# TODO: CONFIRM THIS LOCATION AFTER CODE REORGANIZATION
+OVERRIDE_FILE = LOCAL_ROOT_DIR + "/control_pod/resources/override_flag.txt"
 
 # ---------------------------------------------------------------------------
 # OVERRIDE FLAG (persistent)
