@@ -221,47 +221,71 @@ def reconnect_rak():
 
 def send_data_to_chirpstack(rak, telemetry, site_id=0x8B):
     """
-    Take the current telemetry dict and push a 14-byte binary payload via RAK.
-    depth_ft stays in feet in your code; we convert internally to cm.
+    14-byte uplink matching the current ChirpStack codec:
+
+      [0] protocol_version (1)
+      [1] flags:
+          bit0 = hi_alarm
+          bit1 = lo_alarm
+          bit2 = override
+          bit3 = pump_on
+      [2..3] depth_ft * 100
+      [4..5] mA * 1000
+      [6..7] volts * 1000
+      [8..9] start_ft * 100
+      [10..11] stop_ft * 100
+      [12..13] site_id (uint16)
     """
     if rak is None:
         logging.debug("[SEND] No RAK instance – skipping uplink.")
         return False
 
     try:
-        # Pull values out of telemetry
+        # Values from your telemetry dict
         depth_ft   = float(telemetry.get("depth_ft", 0.0))
         mA         = float(telemetry.get("mA", 0.0))
         voltage    = float(telemetry.get("voltage", 0.0))
-        alarm_on   = bool(telemetry.get("hi_alarm") or telemetry.get("alarm_on"))
-        pump_is_on = bool(telemetry.get("pump_on"))
+        start_ft   = float(telemetry.get("start", 0.0))
+        stop_ft    = float(telemetry.get("stop", 0.0))
 
-        # Feet → centimeters
-        depth_cm = int(round(depth_ft * 30.48))
-        depth_cm = min(max(depth_cm, 0), 0xFFFF)
+        hi_alarm   = bool(telemetry.get("hi_alarm"))
+        lo_alarm   = bool(telemetry.get("lo_alarm"))
+        override   = bool(telemetry.get("override"))
+        pump_on    = bool(telemetry.get("pump_on"))
 
-        # mA → microamps
-        current_uA = int(round(mA * 1000))
-        current_uA = min(max(current_uA, 0), 0xFFFF)
+        def clamp_u16(x: float) -> int:
+            x_int = int(round(x))
+            if x_int < 0:
+                x_int = 0
+            if x_int > 0xFFFF:
+                x_int = 0xFFFF
+            return x_int
 
-        # volts → millivolts
-        voltage_mV = int(round(voltage * 1000))
-        voltage_mV = min(max(voltage_mV, 0), 0xFFFF)
+        # Scale to fixed-point integers
+        depth_x100  = clamp_u16(max(depth_ft, 0.0) * 100.0)
+        current_uA  = clamp_u16(max(mA,       0.0) * 1000.0)
+        voltage_mV  = clamp_u16(max(voltage,  0.0) * 1000.0)
+        start_x100  = clamp_u16(max(start_ft, 0.0) * 100.0)
+        stop_x100   = clamp_u16(max(stop_ft,  0.0) * 100.0)
 
-        # Flags
+        # Flags byte
         flags = 0
-        if alarm_on:
+        if hi_alarm:
             flags |= 0x01
-        if pump_is_on:
+        if lo_alarm:
             flags |= 0x02
+        if override:
+            flags |= 0x04
+        if pump_on:
+            flags |= 0x08
 
-        # Build 14-byte payload
+        # Build payload
         payload = bytearray(14)
-        payload[0] = 1  # protocol version
+        payload[0] = 1           # protocol version
         payload[1] = flags
 
-        payload[2] = (depth_cm >> 8) & 0xFF
-        payload[3] = depth_cm & 0xFF
+        payload[2] = (depth_x100 >> 8) & 0xFF
+        payload[3] = depth_x100 & 0xFF
 
         payload[4] = (current_uA >> 8) & 0xFF
         payload[5] = current_uA & 0xFF
@@ -269,27 +293,33 @@ def send_data_to_chirpstack(rak, telemetry, site_id=0x8B):
         payload[6] = (voltage_mV >> 8) & 0xFF
         payload[7] = voltage_mV & 0xFF
 
-        # Timestamp (placeholder = 0)
-        payload[8] = payload[9] = payload[10] = payload[11] = 0
+        payload[8]  = (start_x100 >> 8) & 0xFF
+        payload[9]  = start_x100 & 0xFF
 
-        # Site ID
+        payload[10] = (stop_x100 >> 8) & 0xFF
+        payload[11] = stop_x100 & 0xFF
+
         payload[12] = (site_id >> 8) & 0xFF
         payload[13] = site_id & 0xFF
 
-        payload_hex = payload.hex().upper()
-
         logging.info(
-            "[SEND] Packed uplink len=%d depth_ft=%.2f depth_cm=%d "
-            "current_uA=%d voltage_mV=%d flags=0x%02X site_id=0x%02X",
-            len(payload), depth_ft, depth_cm, current_uA, voltage_mV, flags, site_id
+            "[SEND] Packed uplink len=%d "
+            "depth_ft=%.3f (x100=%d) mA=%.3f (uA=%d) "
+            "volts=%.3f (mV=%d) start_ft=%.3f (x100=%d) "
+            "stop_ft=%.3f (x100=%d) flags=0x%02X site_id=0x%02X",
+            len(payload),
+            depth_ft, depth_x100,
+            mA, current_uA,
+            voltage, voltage_mV,
+            start_ft, start_x100,
+            stop_ft, stop_x100,
+            flags, site_id,
         )
 
-        # CORRECT CALL (previous bug fixed)
         resp = rak.send_data(payload)
 
         if resp != "OK":
-            logging.warning("[SEND] RAK returned error; attempting reconnect.")
-            reconnect_rak()
+            logging.warning("[SEND] RAK returned error; resp=%r", resp)
             return False
 
         logging.info("[SEND] Uplink OK.")
