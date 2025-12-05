@@ -312,8 +312,13 @@ def send_data_to_chirpstack(rak, telemetry, site_id=0x8B):
             site_id,
         )
 
-        resp = rak.send_data(payload_hex)
-        logging.info("[SEND] RAK response:\n%s", resp)
+        resp = rak.send_data_to_chirpstack(...)
+
+        if resp != "OK":
+            logging.warning("[MAIN] Send failed; attempting RAK reconnect.")
+            reconnect_rak()
+        else:
+            logging.info("[MAIN] Uplink acknowledged (OK).")
 
     except Exception as e:
         logging.exception("[SEND] Failed to send uplink via RAK: %s", e)
