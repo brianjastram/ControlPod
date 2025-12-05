@@ -222,58 +222,40 @@ def reconnect_rak():
 def send_data_to_chirpstack(rak, telemetry, site_id=0x8B):
     """
     Take the current telemetry dict and push a 14-byte binary payload via RAK.
-
-    depth_ft in telemetry stays in feet for all your code;
-    we only convert to cm inside this function for the on-air format.
+    depth_ft stays in feet in your code; we convert internally to cm.
     """
     if rak is None:
         logging.debug("[SEND] No RAK instance – skipping uplink.")
-        return
+        return False
 
     try:
-        # Pull values out of telemetry (with safe defaults)
+        # Pull values out of telemetry
         depth_ft   = float(telemetry.get("depth_ft", 0.0))
         mA         = float(telemetry.get("mA", 0.0))
         voltage    = float(telemetry.get("voltage", 0.0))
         alarm_on   = bool(telemetry.get("hi_alarm") or telemetry.get("alarm_on"))
         pump_is_on = bool(telemetry.get("pump_on"))
 
-        # Convert feet → centimeters (for binary payload only)
-        depth_cm = int(round(depth_ft * 30.48))  # 1 ft = 30.48 cm
-        if depth_cm < 0:
-            depth_cm = 0
-        if depth_cm > 0xFFFF:
-            depth_cm = 0xFFFF
+        # Feet → centimeters
+        depth_cm = int(round(depth_ft * 30.48))
+        depth_cm = min(max(depth_cm, 0), 0xFFFF)
 
         # mA → microamps
-        current_uA = int(round(mA * 1000.0))
-        if current_uA < 0:
-            current_uA = 0
-        if current_uA > 0xFFFF:
-            current_uA = 0xFFFF
+        current_uA = int(round(mA * 1000))
+        current_uA = min(max(current_uA, 0), 0xFFFF)
 
         # volts → millivolts
-        voltage_mV = int(round(voltage * 1000.0))
-        if voltage_mV < 0:
-            voltage_mV = 0
-        if voltage_mV > 0xFFFF:
-            voltage_mV = 0xFFFF
+        voltage_mV = int(round(voltage * 1000))
+        voltage_mV = min(max(voltage_mV, 0), 0xFFFF)
 
-        # Flags bitfield
+        # Flags
         flags = 0
         if alarm_on:
             flags |= 0x01
         if pump_is_on:
             flags |= 0x02
 
-        # 14-byte payload:
-        # [0] protocol_version
-        # [1] flags
-        # [2..3] depth_cm (uint16 BE)
-        # [4..5] current_uA (uint16 BE)
-        # [6..7] voltage_mV (uint16 BE)
-        # [8..11] timestamp (uint32 BE, here 0)
-        # [12..13] site_id (uint16 BE)
+        # Build 14-byte payload
         payload = bytearray(14)
         payload[0] = 1  # protocol version
         payload[1] = flags
@@ -287,41 +269,35 @@ def send_data_to_chirpstack(rak, telemetry, site_id=0x8B):
         payload[6] = (voltage_mV >> 8) & 0xFF
         payload[7] = voltage_mV & 0xFF
 
-        # timestamp = 0 for now
-        payload[8] = 0
-        payload[9] = 0
-        payload[10] = 0
-        payload[11] = 0
+        # Timestamp (placeholder = 0)
+        payload[8] = payload[9] = payload[10] = payload[11] = 0
 
-        # site id 0x8B
+        # Site ID
         payload[12] = (site_id >> 8) & 0xFF
         payload[13] = site_id & 0xFF
 
         payload_hex = payload.hex().upper()
-        depth_x100 = int(round(depth_ft * 100.0))
 
         logging.info(
-            "[SEND] Packed uplink len_bytes=%d depth_ft=%.2f depth_x100=%d "
+            "[SEND] Packed uplink len=%d depth_ft=%.2f depth_cm=%d "
             "current_uA=%d voltage_mV=%d flags=0x%02X site_id=0x%02X",
-            len(payload),
-            depth_ft,
-            depth_x100,
-            current_uA,
-            voltage_mV,
-            flags,
-            site_id,
+            len(payload), depth_ft, depth_cm, current_uA, voltage_mV, flags, site_id
         )
 
-        resp = rak.send_data(payload_bytes)
+        # CORRECT CALL (previous bug fixed)
+        resp = rak.send_data(payload)
 
         if resp != "OK":
-            logging.warning("[MAIN] Send failed; attempting RAK reconnect.")
+            logging.warning("[SEND] RAK returned error; attempting reconnect.")
             reconnect_rak()
-        else:
-            logging.info("[MAIN] Uplink acknowledged (OK).")
+            return False
+
+        logging.info("[SEND] Uplink OK.")
+        return True
 
     except Exception as e:
         logging.exception("[SEND] Failed to send uplink via RAK: %s", e)
+        return False
 
 
 # ---------------------------------------------------------------------------
