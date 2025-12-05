@@ -219,85 +219,86 @@ def reconnect_rak():
     return None
 
 
-def send_data_to_chirpstack(rak, telemetry):
+def send_data_to_chirpstack(rak, depth, mA, voltage, alarm_on, pump_is_on, site_id=0x8B):
     """
-    Build a compact 14-byte binary uplink and send via RAK3172.
+    Build a 14-byte payload and send via RAK3172.
 
-    Layout (big-endian):
-      [0..1] int16 depth_cm         (signed cm from feet)
-      [2..3] uint16 current_uA      (µA, mA * 1000)
-      [4..5] uint16 voltage_mV      (mV, V * 1000)
-      [6]    uint8  flags           (bit0=alarm_on, bit1=pump_on)
-      [7]    uint8  site_id         (0x8B = Ivy bench)
-      [8..13] reserved (zeros)
+    Layout (all big-endian):
+      [0..1]  int16  depth_feet_x100   (hundredths of a foot, signed)
+      [2..3]  uint16 current_uA        (µA)
+      [4..5]  uint16 voltage_mV        (mV)
+      [6]     uint8  flags             (bit0 = alarm, bit1 = pump_on)
+      [7]     uint8  site_id           (0x8B for Ivy lab)
+      [8..13] reserved = 0x00
     """
-
-    if rak is None:
-        logging.warning("[SEND] No RAK object; skipping uplink.")
-        return False
-
     try:
-        # Pull values from telemetry dict, with safe defaults.
-        depth_ft = float(telemetry.get("depth", 0.0))
-        current_mA = float(telemetry.get("mA", 0.0))
-        voltage_V = float(telemetry.get("voltage", 0.0))
+        if rak is None:
+            logging.warning("[SEND] RAK not available, skipping uplink.")
+            return
 
-        # Alarm / pump flags – adapt to your keys.
-        alarm_on = bool(
-            telemetry.get("alarm_on")
-            or telemetry.get("hi_alarm")
-            or telemetry.get("lo_alarm")
+        # Keep everything in feet internally
+        depth_ft = float(depth)
+
+        # Clamp to a sane range for the int16 x100 representation
+        # (-10 ft .. 327.67 ft is plenty for this app)
+        depth_ft = max(-10.0, min(327.67, depth_ft))
+
+        # Scale to hundredths of a foot and cast to signed int16
+        depth_x100 = int(round(depth_ft * 100.0))
+        if depth_x100 < -32768:
+            depth_x100 = -32768
+        if depth_x100 > 32767:
+            depth_x100 = 32767
+
+        current_uA = int(round(max(0.0, mA) * 1000.0))
+        voltage_mV = int(round(max(0.0, voltage) * 1000.0))
+
+        flags = 0
+        if alarm_on:
+            flags |= 0x01
+        if pump_is_on:
+            flags |= 0x02
+
+        payload = bytearray(14)
+
+        # depth (signed int16, big-endian)
+        payload[0] = (depth_x100 >> 8) & 0xFF
+        payload[1] = depth_x100 & 0xFF
+
+        # current_uA (uint16)
+        payload[2] = (current_uA >> 8) & 0xFF
+        payload[3] = current_uA & 0xFF
+
+        # voltage_mV (uint16)
+        payload[4] = (voltage_mV >> 8) & 0xFF
+        payload[5] = voltage_mV & 0xFF
+
+        # flags + site_id
+        payload[6] = flags & 0xFF
+        payload[7] = int(site_id) & 0xFF
+
+        # bytes 8-13 stay 0x00 (reserved)
+
+        payload_hex = payload.hex().upper()
+
+        logging.info(
+            "[SEND] Packed uplink len_bytes=%d depth_ft=%.2f depth_x100=%d "
+            "current_uA=%d voltage_mV=%d flags=0x%02X site_id=0x%02X",
+            len(payload),
+            depth_ft,
+            depth_x100,
+            current_uA,
+            voltage_mV,
+            flags,
+            site_id,
         )
-        pump_on = bool(telemetry.get("pump_on", False))
+
+        resp = rak.send_data(payload_hex)
+        logging.info("[SEND] RAK response:\n%s", resp)
 
     except Exception as e:
-        logging.error(f"[SEND] Telemetry values missing or invalid: {e}")
-        return False
+        logging.exception("[SEND] Failed to send uplink via RAK: %s", e)
 
-    # Unit conversions and clamping.
-    depth_cm = int(round(depth_ft * 30.48))
-    depth_cm = max(min(depth_cm, 32767), -32768)  # int16 range
-
-    current_uA = int(round(current_mA * 1000.0))  # 4–20 mA → 4000–20000 µA
-    current_uA = max(min(current_uA, 65535), 0)   # uint16
-
-    voltage_mV = int(round(voltage_V * 1000.0))   # e.g. 0.5–5.0 V
-    voltage_mV = max(min(voltage_mV, 65535), 0)   # uint16
-
-    # Flags: bit0 = alarm_on, bit1 = pump_on
-    flags = 0
-    if alarm_on:
-        flags |= 0x01
-    if pump_on:
-        flags |= 0x02
-
-    # Fixed site id 0x8B as requested.
-    site_id = 0x8B
-
-    # Pack into 14 bytes (big-endian).
-    payload_bytes = struct.pack(">hHHBB6x", depth_cm, current_uA, voltage_mV, flags, site_id)
-    payload_hex = payload_bytes.hex()
-
-    logging.info(
-        "[SEND] Packed uplink "
-        f"len_bytes={len(payload_bytes)} "
-        f"depth_cm={depth_cm} current_uA={current_uA} "
-        f"voltage_mV={voltage_mV} flags=0x{flags:02X} site_id=0x{site_id:02X}"
-    )
-
-    try:
-        rak_resp = rak.send_data(payload_hex)
-        logging.info(f"[SEND] RAK response:\n{rak_resp}")
-
-        # Optional: log any stored downlink
-        dl = rak.check_downlink()
-        if dl:
-            logging.info(f"[SEND] Last downlink (hex): {dl}")
-
-        return True
-    except Exception as e:
-        logging.error(f"[SEND] Error during RAK send: {e}")
-        return False
 
 
 # ---------------------------------------------------------------------------
