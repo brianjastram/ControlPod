@@ -12,9 +12,9 @@ from rak3172_comm import RAK3172Communicator
 RAK_PORT = "/dev/rak"
 
 # TODO: fill these from ChirpStack (or match your existing landfill unit)
-DEVEUI = "0000000000000000"
-APPEUI = "0000000000000000"
-APPKEY = "00000000000000000000000000000000"
+DEVEUI = "AC1F09FFFE1D83AD"
+APPEUI = "AC1F09FFF9153172"
+APPKEY = "AC1F09FFFE1D83ADAC1F09FFF9153172"
 LORAWAN_CLASS = "A"   # usually A
 BAND = 2              # example: US915 often uses band index like 2; adjust as needed
 DR = 3                # data rate you’re already using in main.py (AT+DR=3)
