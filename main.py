@@ -17,6 +17,7 @@ import os
 import sys
 import time
 import json
+import struct
 import logging
 from datetime import datetime
 
@@ -290,6 +291,49 @@ def inject_downlink(hex_payload: str):
         rak.inject(hex_payload)
     except Exception:
         logging.error("inject_downlink() called but DummyRAK is not active.")
+# ---------------------------------------------------------------------------
+# Uplink Payload Builder
+# ---------------------------------------------------------------------------
+
+def build_uplink_payload(depth_ft, ma, volts, alarm_on, pump_on, site_id, timestamp=None):
+    """
+    Pack a 14-byte payload matching the ChirpStack binary codec:
+
+    Byte 0 : protocol_version (uint8)
+    Byte 1 : flags (bit 0 = alarm_on, bit 1 = pump_on)
+    2-3    : depth_raw  (uint16, depth_ft * 100)
+    4-5    : mA_raw     (uint16, mA * 1000)
+    6-7    : volts_raw  (uint16, volts * 1000)
+    8-11   : timestamp  (uint32, UNIX seconds)
+    12-13  : site_id    (uint16)
+    """
+    protocol_version = 1
+
+    flags = 0
+    if alarm_on:
+        flags |= 0x01
+    if pump_on:
+        flags |= 0x02
+
+    depth_raw = max(0, int(round(depth_ft * 100.0)))
+    ma_raw    = max(0, int(round(ma * 1000.0)))
+    volts_raw = max(0, int(round(volts * 1000.0)))
+
+    if timestamp is None:
+        timestamp = int(time.time())
+
+    ts_raw   = timestamp & 0xFFFFFFFF
+    site_raw = site_id & 0xFFFF
+
+    # > = big-endian; B B H H H I H = 1b,1b,2b,2b,2b,4b,2b = 14 bytes
+    return struct.pack(">BBHHHIH",
+                       protocol_version,
+                       flags,
+                       depth_raw,
+                       ma_raw,
+                       volts_raw,
+                       ts_raw,
+                       site_raw)
 
 # ---------------------------------------------------------------------------
 # MAIN CONTROL LOOP
