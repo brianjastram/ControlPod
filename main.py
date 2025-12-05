@@ -219,67 +219,86 @@ def reconnect_rak():
     return None
 
 
-def send_data_to_chirpstack(rak, depth, mA, voltage, alarm_on, pump_is_on, site_id=0x8B):
+def send_data_to_chirpstack(rak, telemetry, site_id=0x8B):
     """
-    Build a 14-byte payload and send via RAK3172.
+    Take the current telemetry dict and push a 14-byte binary payload via RAK.
 
-    Layout (all big-endian):
-      [0..1]  int16  depth_feet_x100   (hundredths of a foot, signed)
-      [2..3]  uint16 current_uA        (µA)
-      [4..5]  uint16 voltage_mV        (mV)
-      [6]     uint8  flags             (bit0 = alarm, bit1 = pump_on)
-      [7]     uint8  site_id           (0x8B for Ivy lab)
-      [8..13] reserved = 0x00
+    depth_ft in telemetry stays in feet for all your code;
+    we only convert to cm inside this function for the on-air format.
     """
+    if rak is None:
+        logging.debug("[SEND] No RAK instance – skipping uplink.")
+        return
+
     try:
-        if rak is None:
-            logging.warning("[SEND] RAK not available, skipping uplink.")
-            return
+        # Pull values out of telemetry (with safe defaults)
+        depth_ft   = float(telemetry.get("depth_ft", 0.0))
+        mA         = float(telemetry.get("mA", 0.0))
+        voltage    = float(telemetry.get("voltage", 0.0))
+        alarm_on   = bool(telemetry.get("hi_alarm") or telemetry.get("alarm_on"))
+        pump_is_on = bool(telemetry.get("pump_on"))
 
-        # Keep everything in feet internally
-        depth_ft = float(depth)
+        # Convert feet → centimeters (for binary payload only)
+        depth_cm = int(round(depth_ft * 30.48))  # 1 ft = 30.48 cm
+        if depth_cm < 0:
+            depth_cm = 0
+        if depth_cm > 0xFFFF:
+            depth_cm = 0xFFFF
 
-        # Clamp to a sane range for the int16 x100 representation
-        # (-10 ft .. 327.67 ft is plenty for this app)
-        depth_ft = max(-10.0, min(327.67, depth_ft))
+        # mA → microamps
+        current_uA = int(round(mA * 1000.0))
+        if current_uA < 0:
+            current_uA = 0
+        if current_uA > 0xFFFF:
+            current_uA = 0xFFFF
 
-        # Scale to hundredths of a foot and cast to signed int16
-        depth_x100 = int(round(depth_ft * 100.0))
-        if depth_x100 < -32768:
-            depth_x100 = -32768
-        if depth_x100 > 32767:
-            depth_x100 = 32767
+        # volts → millivolts
+        voltage_mV = int(round(voltage * 1000.0))
+        if voltage_mV < 0:
+            voltage_mV = 0
+        if voltage_mV > 0xFFFF:
+            voltage_mV = 0xFFFF
 
-        current_uA = int(round(max(0.0, mA) * 1000.0))
-        voltage_mV = int(round(max(0.0, voltage) * 1000.0))
-
+        # Flags bitfield
         flags = 0
         if alarm_on:
             flags |= 0x01
         if pump_is_on:
             flags |= 0x02
 
+        # 14-byte payload:
+        # [0] protocol_version
+        # [1] flags
+        # [2..3] depth_cm (uint16 BE)
+        # [4..5] current_uA (uint16 BE)
+        # [6..7] voltage_mV (uint16 BE)
+        # [8..11] timestamp (uint32 BE, here 0)
+        # [12..13] site_id (uint16 BE)
         payload = bytearray(14)
+        payload[0] = 1  # protocol version
+        payload[1] = flags
 
-        # depth (signed int16, big-endian)
-        payload[0] = (depth_x100 >> 8) & 0xFF
-        payload[1] = depth_x100 & 0xFF
+        payload[2] = (depth_cm >> 8) & 0xFF
+        payload[3] = depth_cm & 0xFF
 
-        # current_uA (uint16)
-        payload[2] = (current_uA >> 8) & 0xFF
-        payload[3] = current_uA & 0xFF
+        payload[4] = (current_uA >> 8) & 0xFF
+        payload[5] = current_uA & 0xFF
 
-        # voltage_mV (uint16)
-        payload[4] = (voltage_mV >> 8) & 0xFF
-        payload[5] = voltage_mV & 0xFF
+        payload[6] = (voltage_mV >> 8) & 0xFF
+        payload[7] = voltage_mV & 0xFF
 
-        # flags + site_id
-        payload[6] = flags & 0xFF
-        payload[7] = int(site_id) & 0xFF
+        # timestamp = 0 for now
+        payload[8] = 0
+        payload[9] = 0
+        payload[10] = 0
+        payload[11] = 0
 
-        # bytes 8-13 stay 0x00 (reserved)
+        # site id 0x8B
+        payload[12] = (site_id >> 8) & 0xFF
+        payload[13] = site_id & 0xFF
 
         payload_hex = payload.hex().upper()
+        depth_x100 = int(round(depth_ft * 100.0))
 
         logging.info(
             "[SEND] Packed uplink len_bytes=%d depth_ft=%.2f depth_x100=%d "
@@ -298,7 +317,6 @@ def send_data_to_chirpstack(rak, depth, mA, voltage, alarm_on, pump_is_on, site_
 
     except Exception as e:
         logging.exception("[SEND] Failed to send uplink via RAK: %s", e)
-
 
 
 # ---------------------------------------------------------------------------
