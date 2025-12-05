@@ -312,7 +312,7 @@ def send_data_to_chirpstack(rak, telemetry, site_id=0x8B):
             site_id,
         )
 
-        resp = rak.send_data_to_chirpstack(...)
+        resp = rak.send_data(payload_bytes)
 
         if resp != "OK":
             logging.warning("[MAIN] Send failed; attempting RAK reconnect.")
