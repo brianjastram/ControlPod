@@ -16,7 +16,7 @@ Features:
 import time
 import logging
 import logger
-from datetime import datetime
+from datetime import datetime, timezone
 import busio
 import board
 import adafruit_ads1x15.ads1115 as ADS
@@ -28,6 +28,13 @@ from config import (
     INTERVAL_MINUTES,
     READ_INTERVAL_SECONDS,
     ALARM_GPIO_PIN
+)
+from src.config import (
+    PUMP_START_FEET,
+    PUMP_STOP_FEET,
+    HI_ALARM_FEET,
+    LO_ALARM_FEET,
+    SITE_NAME
 )
 from src.model.rak_dummy import DummyRAK
 
@@ -83,8 +90,7 @@ def main() -> None:
 
     # ----------------- USB setpoints sync -----------------
     try:
-        synced = sync_usb_to_local()
-        if synced:
+        if sync_usb_to_local():
             log.info("[MAIN] USB setpoints updated → local cache refreshed.")
         else:
             log.info("[MAIN] USB setpoints already current.")
@@ -96,11 +102,11 @@ def main() -> None:
     except Exception as e:
         log.error(f"[MAIN] Failed to load setpoints, using defaults: {e}")
         current_setpoints = {
-            "START_PUMP_AT": 0.9,
-            "STOP_PUMP_AT": 0.8,
-            "HI_ALARM": 9.5,
-            "LO_ALARM": 0.2,
-            "SITE_NAME": "B2",
+            "START_PUMP_AT": PUMP_START_FEET,
+            "STOP_PUMP_AT": PUMP_STOP_FEET,
+            "HI_ALARM": HI_ALARM_FEET,
+            "LO_ALARM": LO_ALARM_FEET,
+            "SITE_NAME": SITE_NAME,
         }
 
     # --------- DETERMINISTIC STARTUP PUMP STATE ----------
@@ -165,11 +171,11 @@ def main() -> None:
             log.error(f"[MAIN] Downlink check error: {e}")
 
         # ---------- Setpoints ----------
-        start_depth = current_setpoints.get("START_PUMP_AT", 0.9)
-        stop_depth  = current_setpoints.get("STOP_PUMP_AT", 0.8)
-        hi_alarm    = current_setpoints.get("HI_ALARM", 9.5)
-        lo_alarm    = current_setpoints.get("LO_ALARM", 0.2)
-        site_name   = current_setpoints.get("SITE_NAME", "B2")
+        start_depth = current_setpoints.get("START_PUMP_AT", PUMP_START_FEET)
+        stop_depth  = current_setpoints.get("STOP_PUMP_AT", PUMP_STOP_FEET)
+        hi_alarm    = current_setpoints.get("HI_ALARM", HI_ALARM_FEET)
+        lo_alarm    = current_setpoints.get("LO_ALARM", LO_ALARM_FEET)
+        site_name   = current_setpoints.get("SITE_NAME", SITE_NAME)
 
         # -----------------------------------------------------------------------
         # PUMP CONTROL (override first)
@@ -214,7 +220,7 @@ def main() -> None:
         if time.time() - last_send_time >= INTERVAL_MINUTES * 60:
             telemetry = {
                 "device": DEVICE_NAME,
-                "ts": datetime.utcnow().isoformat(),
+                "ts": datetime.now(timezone.utc).isoformat(),
                 "depth": depth,
                 "start": start_depth,
                 "stop": stop_depth,

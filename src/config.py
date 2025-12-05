@@ -28,3 +28,10 @@ ALARM_RELAY_PIN = 17 # TODO: IS THIS THE SAME AS THE GPIO PIN BELOW?
 ALARM_GPIO_PIN = 17           # Panel alarm LED
 # We now talk directly to the Numato relay on /dev/ttyACM0 everywhere.
 RELAY_DEV = "/dev/ttyACM0"
+
+# Default setpoint values
+PUMP_START_FEET = 0.9
+PUMP_STOP_FEET = 0.8
+HI_ALARM_FEET = 9.5
+LO_ALARM_FEET = 0.2
+SITE_NAME = "B2"
