@@ -550,7 +550,9 @@ def main() -> None:
             telemetry = {
                 "device": DEVICE_NAME,
                 "ts": datetime.utcnow().isoformat(),
-                "depth": depth,
+                "depth_ft": depth,
+                "mA": mA,
+                "voltage": voltage,
                 "start": start_depth,
                 "stop": stop_depth,
                 "pump_on": pump_is_on,
