@@ -97,17 +97,8 @@ class RAK3172Communicator:
 
     def send_data(self, payload: Union[str, bytes, bytearray]) -> str:
         """
-        Send uplink data using AT+SEND and capture any downlink RX_1 payload.
-
-        `payload` can be:
-          - bytes / bytearray: raw packed payload (e.g., struct.pack(...))
-          - str: hex string (e.g., '01020304')
-
-        Returns:
-          Entire AT response as a single string (lines joined with '\n').
-
-        Side effect:
-          If a '+EVT:RX_1' line with hex is seen, it is stored in self.last_downlink.
+        Send uplink data using AT+SEND and capture any RX_1 downlink.
+        Treats immediate "OK" as a successful send (RAK3172 behavior).
         """
         if not self.ser or not self.ser.is_open:
             raise ConnectionError("Serial connection is not open.")
@@ -115,19 +106,32 @@ class RAK3172Communicator:
         hex_payload = self._normalize_hex_payload(payload)
         at_command = f"AT+SEND=1:{hex_payload}"
 
+        # Send the command
         response_lines = self.send_command(at_command)
 
-        # Scan from bottom up for a downlink event
+        # Consider "OK" or "+EVT:TX_DONE" as success.
+        # Do NOT treat missing TX_DONE as a failure (RAK often sends it late).
+        success = False
+
+        for line in response_lines:
+            if line.strip() == "OK":
+                success = True
+            if "+EVT:TX_DONE" in line:
+                success = True
+
+        # Capture downlink if present
         for line in reversed(response_lines):
             if "+EVT:RX_1" in line and ":" in line:
                 parts = line.strip().split(":")
-                # Take the last colon-separated field as candidate hex
                 candidate = parts[-1].strip()
                 if candidate and all(c in "0123456789abcdefABCDEF" for c in candidate):
                     self.last_downlink = candidate.upper()
                     break
 
-        return "\n".join(response_lines)
+        if not success:
+            return "ERROR"
+
+        return "OK"
 
     def check_downlink(self) -> Optional[str]:
         """
