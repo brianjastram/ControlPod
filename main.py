@@ -219,35 +219,86 @@ def reconnect_rak():
     return None
 
 
-def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
+def send_data_to_chirpstack(rak, telemetry):
     """
-    Encode telemetry as JSON, hex-encode, and send via RAK.
+    Build a compact 14-byte binary uplink and send via RAK3172.
 
-    Returns True if the send looked OK, False if the module reported
-    AT_NO_NETWORK_JOINED or another obvious error.
+    Layout (big-endian):
+      [0..1] int16 depth_cm         (signed cm from feet)
+      [2..3] uint16 current_uA      (µA, mA * 1000)
+      [4..5] uint16 voltage_mV      (mV, V * 1000)
+      [6]    uint8  flags           (bit0=alarm_on, bit1=pump_on)
+      [7]    uint8  site_id         (0x8B = Ivy bench)
+      [8..13] reserved (zeros)
     """
+
+    if rak is None:
+        logging.warning("[SEND] No RAK object; skipping uplink.")
+        return False
+
     try:
-        payload_hex = json.dumps(telemetry).encode("utf-8").hex()
+        # Pull values from telemetry dict, with safe defaults.
+        depth_ft = float(telemetry.get("depth", 0.0))
+        current_mA = float(telemetry.get("mA", 0.0))
+        voltage_V = float(telemetry.get("voltage", 0.0))
 
-        # ---- CLEAN SEND LOGGING ----
-        logging.info(f"[SEND] uplink sent (bytes={len(payload_hex)})")
+        # Alarm / pump flags – adapt to your keys.
+        alarm_on = bool(
+            telemetry.get("alarm_on")
+            or telemetry.get("hi_alarm")
+            or telemetry.get("lo_alarm")
+        )
+        pump_on = bool(telemetry.get("pump_on", False))
 
-        resp = rak.send_data(payload_hex)  # returns string from rak3172_comm
-        if resp is None or str(resp).strip() == "":
-            logging.debug("[SEND] RAK: no response")
-            return False
+    except Exception as e:
+        logging.error(f"[SEND] Telemetry values missing or invalid: {e}")
+        return False
 
-        resp_str = str(resp).strip()
-        logging.info(f"[SEND] RAK: {resp_str}")
+    # Unit conversions and clamping.
+    depth_cm = int(round(depth_ft * 30.48))
+    depth_cm = max(min(depth_cm, 32767), -32768)  # int16 range
 
-        if "AT_NO_NETWORK_JOINED" in resp_str:
-            logging.error("[SEND] RAK reports no network joined.")
-            return False
+    current_uA = int(round(current_mA * 1000.0))  # 4–20 mA → 4000–20000 µA
+    current_uA = max(min(current_uA, 65535), 0)   # uint16
+
+    voltage_mV = int(round(voltage_V * 1000.0))   # e.g. 0.5–5.0 V
+    voltage_mV = max(min(voltage_mV, 65535), 0)   # uint16
+
+    # Flags: bit0 = alarm_on, bit1 = pump_on
+    flags = 0
+    if alarm_on:
+        flags |= 0x01
+    if pump_on:
+        flags |= 0x02
+
+    # Fixed site id 0x8B as requested.
+    site_id = 0x8B
+
+    # Pack into 14 bytes (big-endian).
+    payload_bytes = struct.pack(">hHHBB6x", depth_cm, current_uA, voltage_mV, flags, site_id)
+    payload_hex = payload_bytes.hex()
+
+    logging.info(
+        "[SEND] Packed uplink "
+        f"len_bytes={len(payload_bytes)} "
+        f"depth_cm={depth_cm} current_uA={current_uA} "
+        f"voltage_mV={voltage_mV} flags=0x{flags:02X} site_id=0x{site_id:02X}"
+    )
+
+    try:
+        rak_resp = rak.send_data(payload_hex)
+        logging.info(f"[SEND] RAK response:\n{rak_resp}")
+
+        # Optional: log any stored downlink
+        dl = rak.check_downlink()
+        if dl:
+            logging.info(f"[SEND] Last downlink (hex): {dl}")
 
         return True
     except Exception as e:
-        logging.error(f"[SEND] Exception while sending uplink: {e}")
+        logging.error(f"[SEND] Error during RAK send: {e}")
         return False
+
 
 # ---------------------------------------------------------------------------
 # Global RAK instance + Dummy for bench
