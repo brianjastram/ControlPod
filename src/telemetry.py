@@ -1,7 +1,11 @@
 # FILE: telemetry.py
 
 import logging
+
+from model.depth_telemetry import DepthTelemetry
 from config import RESISTOR_OHMS, MAX_DEPTH_FT, DEPTH_SCALING_FACTOR
+
+log = logging.getLogger(__name__)
 
 def read_depth(chan):
     """
@@ -20,13 +24,13 @@ def read_depth(chan):
     try:
         voltage = float(chan.voltage)
     except Exception as e:
-        logging.error(f"[DEPTH] Failed to read ADC: {e}")
+        log.error(f"[DEPTH] Failed to read ADC: {e}")
         raise
     # Read shunt voltage from ADS1115
     try:
         voltage = float(chan.voltage)  # ensure it's a plain float
     except Exception as e:
-        logging.error(f"[DEPTH] Failed to read ADC: {e}")
+        log.error(f"[DEPTH] Failed to read ADC: {e}")
         raise
 
     # Convert voltage across shunt to loop current
@@ -46,10 +50,10 @@ def read_depth(chan):
     # Apply your calibration factor
     depth *= DEPTH_SCALING_FACTOR
 
-    logging.debug(
+    log.debug(
         f"[DEPTH] V={voltage:.4f} V, I={mA_clamped:.3f} mA, depth={depth:.2f} ft"
     )
 
     # main.py expects exactly this shape:
     #   depth, mA, voltage
-    return depth, mA_clamped, voltage
+    return DepthTelemetry(depth, mA_clamped, voltage)
