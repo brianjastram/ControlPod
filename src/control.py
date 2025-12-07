@@ -2,8 +2,8 @@
 
 import logging
 import RPi.GPIO as GPIO
-from usb_settings import log_override_change
-from config import (ALARM_RELAY_PIN, LOCAL_ROOT_DIR)
+from src.usb_settings import log_override_change
+from src.config import (ALARM_RELAY_PIN, LOCAL_ROOT_DIR)
 
 log = logging.getLogger(__name__)
 

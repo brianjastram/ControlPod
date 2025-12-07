@@ -7,10 +7,10 @@ Handles processing of LoRaWAN downlink payloads received from ChirpStack. This i
 - Logging actions and errors
 """
 import logging
-from control import override_flag, set_override_flag
-from telemetry import read_depth
-from usb_settings import save_zero_offset, load_setpoints, save_setpoints
-from main import analog_input_channel
+from src.control import override_flag, set_override_flag
+from src.telemetry import read_depth
+from src.usb_settings import save_zero_offset, load_setpoints, save_setpoints
+from src import shared_state
 
 log  = logging.getLogger(__name__)
 
@@ -141,8 +141,8 @@ def calibrate_zero_offset():
 
         # Try hardware path first
         try:
-            if analog_input_channel is not None:
-                depth_telemetry = read_depth(analog_input_channel)
+            if shared_state.analog_input_channel is not None:
+                depth_telemetry = read_depth(shared_state.analog_input_channel)
                 depth = depth_telemetry.depth
                 log.info("[ZERO] Using telemetry.read_depth(chan)")
             else:

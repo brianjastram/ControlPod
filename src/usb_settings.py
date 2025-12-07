@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 import time
 import shutil
-from config import LOG_DIR
+from src.config import LOG_DIR
 
 log = logging.getLogger(__name__)
 

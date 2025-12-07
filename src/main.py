@@ -15,37 +15,34 @@ Features:
 
 import time
 import logging
-import logger
 from datetime import datetime, timezone
+
+from src import shared_state
+from src import logger
+from src.config import (
+    DEVICE_NAME,
+    INTERVAL_MINUTES,
+    READ_INTERVAL_SECONDS,
+    ALARM_GPIO_PIN,
+    PUMP_START_FEET,
+    PUMP_STOP_FEET,
+    HI_ALARM_FEET,
+    LO_ALARM_FEET,
+    SITE_NAME,
+)
+from src.telemetry import read_depth
+from src.usb_settings import sync_usb_to_local, load_setpoints
+from src.downlink import process_downlink_command
+from src.control import is_override_active
+from src import rak as rak_service
+from src import relay
+from src.model.rak_dummy import DummyRAK
+
 import busio
 import board
 import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 import RPi.GPIO as GPIO
-
-from config import (
-    DEVICE_NAME,
-    INTERVAL_MINUTES,
-    READ_INTERVAL_SECONDS,
-    ALARM_GPIO_PIN
-)
-from src.config import (
-    PUMP_START_FEET,
-    PUMP_STOP_FEET,
-    HI_ALARM_FEET,
-    LO_ALARM_FEET,
-    SITE_NAME
-)
-from src.model.rak_dummy import DummyRAK
-
-from telemetry import read_depth
-from usb_settings import sync_usb_to_local, load_setpoints
-from downlink import process_downlink_command
-from control import is_override_active
-import rak as rak_service
-import relay
-
-analog_input_channel = None
 
 logger.setupLogging()
 log = logging.getLogger(__name__)
@@ -76,11 +73,11 @@ def main() -> None:
     try:
         i2c = busio.I2C(board.SCL, board.SDA)
         ads = ADS.ADS1115(i2c)
-        analog_input_channel = AnalogIn(ads, 0)  # single-ended channel 0
+        shared_state.analog_input_channel = AnalogIn(ads, 0)  # single-ended channel 0
         log.info("ADS1115 detected on I2C bus.")
     except Exception as e:
         ads = None
-        analog_input_channel = None
+        shared_state.analog_input_channel = None
         log.error(f"[SIM] No ADS1115 detected ({e}); using simulated depth readings.")
 
     # ----------------- Pump + alarms state -----------------
@@ -131,7 +128,7 @@ def main() -> None:
         # ----------------------------------------------------------
         try:
             # read_depth is expected to return (depth_ft, mA, voltage)
-            depth, mA, voltage = read_depth(analog_input_channel)
+            depth, mA, voltage = read_depth(shared_state.analog_input_channel)
             log.info(
                 f"[MEASURE] depth={depth:.2f} ft  mA={mA:.3f}  V={voltage:.3f}"
             )

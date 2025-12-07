@@ -2,8 +2,8 @@
 
 import logging
 
-from model.depth_telemetry import DepthTelemetry
-from config import RESISTOR_OHMS, MAX_DEPTH_FT, DEPTH_SCALING_FACTOR
+from src.model.depth_telemetry import DepthTelemetry
+from src.config import RESISTOR_OHMS, MAX_DEPTH_FT, DEPTH_SCALING_FACTOR
 
 log = logging.getLogger(__name__)
 

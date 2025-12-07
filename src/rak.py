@@ -1,6 +1,6 @@
 import logging
-from config import MAX_RETRIES
-from model.rak3172_comm import RAK3172Communicator
+from src.config import MAX_RETRIES
+from src.model.rak3172_comm import RAK3172Communicator
 import time
 import json
 
