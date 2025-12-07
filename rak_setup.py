@@ -11,7 +11,6 @@ from rak3172_comm import RAK3172Communicator
 
 RAK_PORT = "/dev/rak"
 
-# TODO: fill these from ChirpStack (or match your existing landfill unit)
 DEVEUI = "AC1F09FFFE1D83AD"
 APPEUI = "AC1F09FFF9153172"
 APPKEY = "AC1F09FFFE1D83ADAC1F09FFF9153172"
