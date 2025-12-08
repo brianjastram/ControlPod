@@ -1,7 +1,7 @@
 import logging
 import serial
 import RPi.GPIO as GPIO
-from src.config import MAX_RETRIES
+from src.config import MAX_RETRIES, SITE_ID
 from src.model.rak3172_comm import RAK3172Communicator
 from src.config import RELAY_DEV, ALARM_GPIO_PIN
 import time
@@ -124,9 +124,7 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
         override   = bool(telemetry.get("override", False))
         pump_on    = bool(telemetry.get("pump_on", False))
 
-        # TODO: adjust this to match whatever ID you want in the last 2 bytes.
-        # For now, keep a simple constant; your codec just formats it as hex.
-        site_id = 0x0002
+        site_id = SITE_ID
 
         # Scale to integers (match legacy behavior)
         depth_x100   = int(round(depth_ft * 100.0))
