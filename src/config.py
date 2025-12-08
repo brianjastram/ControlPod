@@ -15,7 +15,7 @@ RELAY_PORT = "/dev/rakradio"      # USB relay control port
 RESISTOR_OHMS = 250              # Resistor value in ohms for mA conversion
 MAX_DEPTH_FT = 10.0              # Max measurable depth (based on sensor)
 
-DEPTH_SCALING_FACTOR = 1.064  # Reset for recalibration with sensor in air
+DEPTH_SCALING_FACTOR = 1.0 # Reset for recalibration with sensor in air
 
 # Path to setpoints JSON file
 SETPOINTS_FILE = "/home/pi/setpoints.json"
@@ -34,5 +34,5 @@ PUMP_START_FEET = 0.9
 PUMP_STOP_FEET = 0.8
 HI_ALARM_FEET = 9.5
 LO_ALARM_FEET = 0.2
-SITE_NAME = "B2"
+SITE_NAME = "8B"
 SITE_ID = 0x008B
