@@ -1,4 +1,7 @@
 import logging
+import serial           # if used there
+import RPi.GPIO as GPIO
+from src.config import RELAY_DEV, ALARM_GPIO_PIN
 
 log = logging.getLogger(__name__)
 

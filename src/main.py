@@ -128,12 +128,12 @@ def main() -> None:
         # ----------------------------------------------------------
         # MEASUREMENT
         # ----------------------------------------------------------
+        
         try:
             measurement = read_depth(analog_input_channel)
-            # Adjust attribute names if they differ in DepthTelemetry
-            depth = measurement.depth_ft
-            mA = measurement.current_mA
-            voltage = measurement.voltage
+            depth = measurement.depth          # feet
+            mA = measurement.ma_clamped        # mA
+            voltage = measurement.voltage      # volts
 
             log.info(
                 f"[MEASURE] depth={depth:.2f} ft  mA={mA:.3f}  V={voltage:.3f}"
@@ -147,16 +147,20 @@ def main() -> None:
         try:
             zero_offset = current_setpoints.get("ZERO_OFFSET", 0.0)
             depth_raw = depth
-            depth = max(0.0, depth_raw - zero_offset)
-            # Correct zero adjustment: depth = raw + offset
-            adjusted = depth_raw + zero_offset
-            log.info(
-            f"[ZERO] Applied zero_offset={zero_offset:.3f} → adjusted_depth={adjusted:.3f} (raw={depth_raw:.3f})"
-            )
-            depth = adjusted
 
+            # Apply offset: user-defined shift in feet
+            adjusted = depth_raw + zero_offset
+
+            # Clamp so we never send negative depths into the unsigned field
+            depth = max(0.0, adjusted)
+
+            log.info(
+                f"[ZERO] Applied zero_offset={zero_offset:.3f} → "
+                f"adjusted_depth={depth:.3f} (raw={depth_raw:.3f})"
+            )
         except Exception as e:
             log.error(f"[ZERO] Failed to apply zero offset: {e}")
+
 
         # ---------- Downlink ----------
         try:
