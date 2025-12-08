@@ -1,7 +1,9 @@
 import logging
+import serial
 import RPi.GPIO as GPIO
 from src.config import MAX_RETRIES
 from src.model.rak3172_comm import RAK3172Communicator
+from src.config import RELAY_DEV, ALARM_GPIO_PIN
 import time
 import json
 
@@ -123,3 +125,12 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
     except Exception as e:
         log.error(f"[SEND] Exception while sending uplink: {e}")
         return False
+    
+def reconnect_rak(rak: RAK3172Communicator) -> RAK3172Communicator | None:
+    """
+    Simple reconnect helper used by main.py.
+    Currently just calls connect() again and returns the new object (or None).
+    """
+    
+    log.info("[RAK] Attempting RAK reconnect...")
+    return connect()

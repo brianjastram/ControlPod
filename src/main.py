@@ -44,6 +44,7 @@ import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 import RPi.GPIO as GPIO
 
+analog_input_channel = None
 logger.setupLogging()
 log = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ def main() -> None:
     try:
         i2c = busio.I2C(board.SCL, board.SDA)
         ads = ADS.ADS1115(i2c)
+        analog_input_channel = AnalogIn(ads, 0)  # single-ended channel 0
         shared_state.analog_input_channel = AnalogIn(ads, 0)  # single-ended channel 0
         log.info("ADS1115 detected on I2C bus.")
     except Exception as e:
