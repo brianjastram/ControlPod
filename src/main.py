@@ -127,15 +127,19 @@ def main() -> None:
         # MEASUREMENT
         # ----------------------------------------------------------
         try:
-            # read_depth is expected to return (depth_ft, mA, voltage)
-            depth, mA, voltage = read_depth(shared_state.analog_input_channel)
+            measurement = read_depth(analog_input_channel)
+            # Adjust attribute names if they differ in DepthTelemetry
+            depth = measurement.depth_ft
+            mA = measurement.current_mA
+            voltage = measurement.voltage
+
             log.info(
                 f"[MEASURE] depth={depth:.2f} ft  mA={mA:.3f}  V={voltage:.3f}"
             )
         except Exception as e:
             log.error(f"[MAIN] Error reading depth: {e}")
-            # Always assign something so the rest of the loop can continue
             depth, mA, voltage = 0.0, 0.0, 0.0
+
 
         # -------- APPLY ZERO OFFSET --------
         try:
@@ -229,10 +233,10 @@ def main() -> None:
             }
 
             try:
-                ok = rak.send_data_to_chirpstack(rak, telemetry)
+                ok = rak_service.send_data_to_chirpstack(rak, telemetry)
                 if not ok:
                     log.warning("[MAIN] Send failed; attempting RAK reconnect.")
-                    rak2 = rak.reconnect_rak()
+                    rak2 = rak_service.reconnect_rak(rak)
                     if rak2 is not None:
                         rak = rak2
             except Exception as e:
