@@ -7,7 +7,7 @@ Run only when /dev/rak is present.
 """
 
 import time
-from rak3172_comm import RAK3172Communicator
+from src.model.rak3172_comm import RAK3172Communicator
 
 RAK_PORT = "/dev/rak"
 
