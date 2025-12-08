@@ -98,18 +98,96 @@ def connect():
 
 def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
     """
-    Encode telemetry as JSON, hex-encode, and send via RAK.
+    Build the 14-byte binary payload compatible with the legacy codec and send it.
 
-    Returns True if the send looked OK, False if the module reported
-    AT_NO_NETWORK_JOINED or another obvious error.
+    Layout (same as legacy ControlPod main):
+
+        byte 0 : protocol version (1)
+        byte 1 : flags (bitfield)
+        bytes 2-3  : depth_x100 (uint16 big-endian)        depth [ft] * 100
+        bytes 4-5  : current_uA (uint16 big-endian)        current [mA] * 1000
+        bytes 6-7  : voltage_mV (uint16 big-endian)        voltage [V] * 1000
+        bytes 8-9  : start_x100 (uint16 big-endian)        start [ft] * 100
+        bytes 10-11: stop_x100 (uint16 big-endian)         stop [ft] * 100
+        bytes 12-13: site_id (uint16 big-endian)           fixed site ID
     """
     try:
-        payload_hex = json.dumps(telemetry).encode("utf-8").hex()
+        # Extract and normalize fields from the telemetry dict
+        depth_ft   = float(telemetry.get("depth", 0.0))
+        current_mA = float(telemetry.get("current_mA", 0.0))
+        voltage_V  = float(telemetry.get("voltage", 0.0))
+        start_ft   = float(telemetry.get("start", 0.0))
+        stop_ft    = float(telemetry.get("stop", 0.0))
 
-        # ---- CLEAN SEND LOGGING ----
-        log.info(f"[SEND] uplink sent (bytes={len(payload_hex)})")
+        hi_alarm   = bool(telemetry.get("hi_alarm", False))
+        lo_alarm   = bool(telemetry.get("lo_alarm", False))
+        override   = bool(telemetry.get("override", False))
+        pump_on    = bool(telemetry.get("pump_on", False))
 
-        resp = rak.send_data(payload_hex)  # returns string from rak3172_comm
+        # TODO: adjust this to match whatever ID you want in the last 2 bytes.
+        # For now, keep a simple constant; your codec just formats it as hex.
+        site_id = 0x0002
+
+        # Scale to integers (match legacy behavior)
+        depth_x100   = int(round(depth_ft * 100.0))
+        current_uA   = int(round(current_mA * 1000.0))
+        voltage_mV   = int(round(voltage_V * 1000.0))
+        start_x100   = int(round(start_ft * 100.0))
+        stop_x100    = int(round(stop_ft * 100.0))
+
+        # Flags bitfield (same as legacy main)
+        flags = 0
+        if hi_alarm:
+            flags |= 0x01
+        if lo_alarm:
+            flags |= 0x02
+        if override:
+            flags |= 0x04
+        if pump_on:
+            flags |= 0x08
+
+        # Build 14-byte payload
+        payload = bytearray(14)
+        payload[0] = 1           # protocol version
+        payload[1] = flags
+
+        payload[2] = (depth_x100 >> 8) & 0xFF
+        payload[3] = depth_x100 & 0xFF
+
+        payload[4] = (current_uA >> 8) & 0xFF
+        payload[5] = current_uA & 0xFF
+
+        payload[6] = (voltage_mV >> 8) & 0xFF
+        payload[7] = voltage_mV & 0xFF
+
+        payload[8]  = (start_x100 >> 8) & 0xFF
+        payload[9]  = start_x100 & 0xFF
+
+        payload[10] = (stop_x100 >> 8) & 0xFF
+        payload[11] = stop_x100 & 0xFF
+
+        payload[12] = (site_id >> 8) & 0xFF
+        payload[13] = site_id & 0xFF
+
+        # Log the packed frame for debugging
+        log.info(
+            "[SEND] Packed uplink len=%d "
+            "depth_ft=%.3f (x100=%d) mA=%.3f (uA=%d) "
+            "volts=%.3f (mV=%d) start_ft=%.3f (x100=%d) "
+            "stop_ft=%.3f (x100=%d) flags=0x%02X site_id=0x%04X",
+            len(payload),
+            depth_ft, depth_x100,
+            current_mA, current_uA,
+            voltage_V, voltage_mV,
+            start_ft, start_x100,
+            stop_ft, stop_x100,
+            flags, site_id,
+        )
+
+        # Hex-encode for AT+SEND (same as legacy rak3172_comm usage)
+        payload_hex = payload.hex()
+
+        resp = rak.send_data(payload_hex)
         if resp is None or str(resp).strip() == "":
             log.debug("[SEND] RAK: no response")
             return False
@@ -122,9 +200,11 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
             return False
 
         return True
+
     except Exception as e:
         log.error(f"[SEND] Exception while sending uplink: {e}")
         return False
+
     
 def reconnect_rak(rak: RAK3172Communicator) -> RAK3172Communicator | None:
     """

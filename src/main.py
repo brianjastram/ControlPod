@@ -225,6 +225,8 @@ def main() -> None:
                 "device": DEVICE_NAME,
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "depth": depth,
+                "current_mA": mA,
+                "voltage": voltage,
                 "start": start_depth,
                 "stop": stop_depth,
                 "pump_on": pump_is_on,
