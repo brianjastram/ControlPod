@@ -111,6 +111,9 @@ def process_downlink_command(raw_downlink):
                     update_setpoints("HI_ALARM", command_value)
                 elif command_name == "SETLOALARM":
                     update_setpoints("LO_ALARM", command_value)
+                elif command_name in ("SETOFFSET", "SETZERO", "SETZEROOFFSET"):
+                    update_setpoints("ZERO_OFFSET", command_value)
+                    log.info(f"[COMMAND] Set zero offset to {command_value}")
                 else:
                     log.error(f"[COMMAND] Invalid downlink command: {ascii_command}")
             else:
