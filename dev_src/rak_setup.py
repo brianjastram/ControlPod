@@ -7,7 +7,7 @@ Run only when /dev/rak is present.
 """
 
 import time
-from rak3172_comm import RAK3172Communicator
+from src.model.rak3172_comm import RAK3172Communicator
 
 RAK_PORT = "/dev/rak"
 
@@ -15,8 +15,8 @@ DEVEUI = "AC1F09FFFE1D83AD"
 APPEUI = "AC1F09FFF9153172"
 APPKEY = "AC1F09FFFE1D83ADAC1F09FFF9153172"
 LORAWAN_CLASS = "A"   # usually A
-BAND = 2              # example: US915 often uses band index like 2; adjust as needed
-DR = 3                # data rate you’re already using in main.py (AT+DR=3)
+BAND = 5             # example: US915 often uses band index like 2; adjust as needed
+DR = 3                # data rate you're already using in main.py (AT+DR=3)
 
 def send(rak, cmd):
     print(f">> {cmd}")

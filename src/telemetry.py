@@ -1,7 +1,12 @@
 # FILE: telemetry.py
 
 import logging
-from config import RESISTOR_OHMS, MAX_DEPTH_FT, DEPTH_SCALING_FACTOR
+
+from src.model.depth_telemetry import DepthTelemetry
+from src.config import RESISTOR_OHMS, MAX_DEPTH_FT, DEPTH_SCALING_FACTOR
+
+log = logging.getLogger(__name__)
+
 
 def read_depth(chan):
     """
@@ -17,22 +22,21 @@ def read_depth(chan):
     # --- SIM OVERRIDE (temporary test) ---
     # return 0.8, 10.0, 1.0   # depth > HI_ALARM
     # -------------------------------------
-    try:
-        voltage = float(chan.voltage)
-    except Exception as e:
-        logging.error(f"[DEPTH] Failed to read ADC: {e}")
-        raise
+    
+    if chan is None:
+        raise RuntimeError("ADS1115 channel not initialized; cannot read depth.")
+
     # Read shunt voltage from ADS1115
     try:
         voltage = float(chan.voltage)  # ensure it's a plain float
     except Exception as e:
-        logging.error(f"[DEPTH] Failed to read ADC: {e}")
+        log.error(f"[DEPTH] Failed to read ADC: {e}")
         raise
 
     # Convert voltage across shunt to loop current
     mA = (voltage / RESISTOR_OHMS) * 1000.0  # V/R → A → mA
 
-    # Clamp to a sane range
+    # Clamp to a sane range (0–25 mA)
     mA_clamped = max(0.0, min(mA, 25.0))
 
     # Map 4–20 mA → 0–MAX_DEPTH_FT
@@ -46,10 +50,8 @@ def read_depth(chan):
     # Apply your calibration factor
     depth *= DEPTH_SCALING_FACTOR
 
-    logging.debug(
+    log.debug(
         f"[DEPTH] V={voltage:.4f} V, I={mA_clamped:.3f} mA, depth={depth:.2f} ft"
     )
 
-    # main.py expects exactly this shape:
-    #   depth, mA, voltage
-    return depth, mA_clamped, voltage
+    return DepthTelemetry(depth, mA_clamped, voltage)
