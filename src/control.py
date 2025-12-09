@@ -3,13 +3,13 @@
 import logging
 import RPi.GPIO as GPIO
 from src.usb_settings import log_override_change
-from src.config import (ALARM_RELAY_PIN, LOCAL_ROOT_DIR)
+from src.config import (ALARM_GPIO_PIN, LOCAL_ROOT_DIR)
 
 log = logging.getLogger(__name__)
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
-GPIO.setup(ALARM_RELAY_PIN, GPIO.OUT)
+GPIO.setup(ALARM_GPIO_PIN, GPIO.OUT)
 # TODO: CONFIRM THIS LOCATION AFTER CODE REORGANIZATION
 OVERRIDE_FILE = LOCAL_ROOT_DIR + "/control_pod/resources/override_flag.txt"
 
@@ -97,7 +97,7 @@ def set_alarm_light(state: bool) -> None:
     _alarm_state = state
 
     try:
-        GPIO.output(ALARM_RELAY_PIN, GPIO.HIGH if state else GPIO.LOW)
+        GPIO.output(ALARM_GPIO_PIN, GPIO.HIGH if state else GPIO.LOW)
         log.info(f"[ALARM] Alarm {'ON' if state else 'OFF'} (GPIO17)")
     except Exception as e:
         log.error(f"Failed to set alarm light: {e}")
