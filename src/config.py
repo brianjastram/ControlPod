@@ -4,7 +4,7 @@ DEVICE_NAME = "kandiyohi_pi_rak"
 SERIAL_PORT = "/dev/ttyUSB0"  # Update if RAK3172 is on a different port
 
 MAX_RETRIES = 5
-INTERVAL_MINUTES = 0.25
+INTERVAL_MINUTES = 1.00
 
 # Timing settings
 READ_INTERVAL_SECONDS = 1        # How often to check the depth (in seconds)
