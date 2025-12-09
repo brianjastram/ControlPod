@@ -111,6 +111,11 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
         bytes 10-11: stop_x100 (uint16 big-endian)         stop [ft] * 100
         bytes 12-13: site_id (uint16 big-endian)           fixed site ID
     """
+
+    if rak is None:
+        logging.debug("[SEND] No RAK instance – skipping uplink.")
+        return False
+
     try:
         # Extract and normalize fields from the telemetry dict
         depth_ft   = float(telemetry.get("depth", 0.0))
