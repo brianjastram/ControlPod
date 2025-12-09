@@ -264,7 +264,7 @@ def main() -> None:
         #GPIO.output(HEARTBEAT_GPIO_PIN,
         #            GPIO.HIGH if heartbeat_state else GPIO.LOW)
         
-        #time.sleep(READ_INTERVAL_SECONDS)
+        time.sleep(READ_INTERVAL_SECONDS)
 
 
 if __name__ == "__main__":
