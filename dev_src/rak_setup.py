@@ -6,6 +6,15 @@ Edit the DEVEUI / APPEUI / APPKEY / BAND values before running.
 Run only when /dev/rak is present.
 """
 
+# --- ensure project root is on sys.path ---
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]   # /home/pi/ControlPod
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# ------------------------------------------
+
 import time
 from src.model.rak3172_comm import RAK3172Communicator
 
