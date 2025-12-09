@@ -13,7 +13,7 @@ SEND_INTERVAL_MINUTES = INTERVAL_MINUTES  # Mirror existing setting for compatib
 # Hardware configuration
 RELAY_PORT = "/dev/rakradio"      # USB relay control port
 RESISTOR_OHMS = 250              # Resistor value in ohms for mA conversion
-MAX_DEPTH_FT = 10.0              # Max measurable depth (based on sensor)
+MAX_DEPTH_FT = 11.5              # Max measurable depth (based on sensor)
 
 DEPTH_SCALING_FACTOR = 1.0 # Reset for recalibration with sensor in air
 
