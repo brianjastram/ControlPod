@@ -24,6 +24,7 @@ from src.config import (
     INTERVAL_MINUTES,
     READ_INTERVAL_SECONDS,
     ALARM_GPIO_PIN,
+    HEARTBEAT_GPIO_PIN,
     PUMP_START_FEET,
     PUMP_STOP_FEET,
     HI_ALARM_FEET,
@@ -70,6 +71,10 @@ def main() -> None:
     GPIO.setup(ALARM_GPIO_PIN, GPIO.OUT)
     GPIO.output(ALARM_GPIO_PIN, GPIO.LOW)
 
+    # Heartbeat LED setup
+    GPIO.setup(HEARTBEAT_GPIO_PIN, GPIO.OUT)
+    GPIO.output(HEARTBEAT_GPIO_PIN, GPIO.LOW)
+    
     # ----------------- ADS1115 -----------------
     try:
         i2c = busio.I2C(board.SCL, board.SDA)
@@ -87,6 +92,8 @@ def main() -> None:
     alarm_hi_on = False
     alarm_lo_on = False
 
+    # ----------------- Heartbeat State---------------------
+    heartbeat_state = False
     # ----------------- USB setpoints sync -----------------
     try:
         if sync_usb_to_local():
@@ -251,7 +258,12 @@ def main() -> None:
                 log.error(f"[MAIN] Telemetry send error: {e}")
 
             last_send_time = time.time()
-
+        
+        # ---------- Heartbeat blink ----------
+        heartbeat_state = not heartbeat_state
+        GPIO.output(HEARTBEAT_GPIO_PIN,
+                    GPIO.HIGH if heartbeat_state else GPIO.LOW)
+        
         time.sleep(READ_INTERVAL_SECONDS)
 
 
