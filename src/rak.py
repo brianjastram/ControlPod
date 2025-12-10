@@ -9,18 +9,56 @@ import json
 
 log = logging.getLogger(__name__)
 
+# How often to check join status (in number of sends)
+_NJS_CHECK_INTERVAL = 10
+_njs_send_counter = 0
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _parse_njs_response(lines: list[str]) -> bool:
+    """
+    Best-effort parser for AT+NJS responses.
+
+    Different firmwares may return:
+      - "0" or "1"
+      - "+NJS:0" / "+NJS:1"
+      - "AT+NJS=0" / "AT+NJS=1"
+
+    We treat anything containing '1' (and not obviously just help text)
+    as "joined".
+    """
+    for line in lines:
+        s = line.strip()
+        if not s:
+            continue
+
+        # Help text looks like: "AT+NJS,R: get the join status (0 = not joined, 1 = joined)"
+        if "get the join status" in s:
+            continue
+
+        if "NJS" in s and "1" in s:
+            return True
+        if s == "1":
+            return True
+
+    return False
+
+
 # ---------------------------------------------------------------------------
 # RAK helpers
 # ---------------------------------------------------------------------------
 
-def connect():
+def connect() -> RAK3172Communicator | None:
     """
     Connect to the RAK3172 on /dev/rak and try to ensure it is joined.
 
     Uses:
       - AT+NWM=1   (LoRaWAN mode)
       - AT+NJM=1   (OTAA)
-      - AT+NJS?    (check join status)
+      - AT+NJS     (check join status)
       - AT+JOIN=1:1:10:5 (force OTAA join with retry window)
     """
     port = "/dev/rak"
@@ -41,14 +79,15 @@ def connect():
             # Check join status
             joined = False
             try:
-                status = rak.send_command("AT+NJS?")
-                log.info("[RAK] NJS? -> " + " | ".join(status))
-                if any("+NJS:" in line and "1" in line for line in status):
+                status = rak.send_command("AT+NJS")
+                log.info("[RAK] NJS check (connect) -> " + " | ".join(status))
+                if _parse_njs_response(status):
                     joined = True
                     log.info("[RAK] Already joined (NJS=1).")
             except Exception as e:
-                log.warning(f"[RAK] NJS? query failed: {e}")
+                log.warning(f"[RAK] NJS query failed: {e}")
 
+            # If not joined, attempt join
             if not joined:
                 log.info("[RAK] Not joined, sending AT+JOIN=1:1:10:5 ...")
                 join_lines = rak.send_command("AT+JOIN=1:1:10:5")
@@ -70,15 +109,15 @@ def connect():
                 if not joined:
                     # Final status check
                     try:
-                        status2 = rak.send_command("AT+NJS?")
-                        log.info("[RAK] NJS? (post-join) -> " + " | ".join(status2))
-                        if any("+NJS:" in line and "1" in line for line in status2):
+                        status2 = rak.send_command("AT+NJS")
+                        log.info("[RAK] NJS (post-join) -> " + " | ".join(status2))
+                        if _parse_njs_response(status2):
                             joined = True
                             log.info("[RAK] Join confirmed via NJS=1.")
                         else:
                             log.warning("[RAK] Still not joined after join window.")
                     except Exception as e:
-                        log.warning(f"[RAK] NJS? post-join failed: {e}")
+                        log.warning(f"[RAK] NJS post-join query failed: {e}")
 
             if not joined:
                 log.warning(
@@ -96,6 +135,55 @@ def connect():
     return None
 
 
+def ensure_joined(
+    rak: RAK3172Communicator,
+    max_join_attempts: int = 2,
+    join_cmd: str = "AT+JOIN=1:1:10:5",
+) -> bool:
+    """
+    Light health check: verify the RAK reports 'joined', and if not,
+    try to re-join automatically.
+
+    Returns True if we are (or become) joined, False if we fail.
+    """
+
+    # 1) Query join status
+    try:
+        resp = rak.send_command("AT+NJS")
+        log.info(f"[RAK] NJS check -> {' | '.join(resp)}")
+        if _parse_njs_response(resp):
+            return True
+    except Exception as e:
+        log.warning(f"[RAK] NJS check failed: {e}")
+        # fall through and *attempt* a join anyway
+
+    log.warning("[RAK] Module reports NOT JOINED; attempting re-join...")
+
+    # 2) Attempt re-join a few times
+    for attempt in range(1, max_join_attempts + 1):
+        try:
+            resp = rak.send_command(join_cmd)
+            log.info(f"[RAK] JOIN attempt {attempt}: immediate response: {' | '.join(resp)}")
+        except Exception as e:
+            log.error(f"[RAK] JOIN command failed on attempt {attempt}: {e}")
+            continue
+
+        # Allow time for join exchange and EVTs
+        time.sleep(10)
+
+        try:
+            resp2 = rak.send_command("AT+NJS")
+            log.info(f"[RAK] NJS after JOIN attempt {attempt} -> {' | '.join(resp2)}")
+            if _parse_njs_response(resp2):
+                log.info("[RAK] Re-join succeeded according to AT+NJS.")
+                return True
+        except Exception as e:
+            log.warning(f"[RAK] NJS re-check failed after JOIN attempt {attempt}: {e}")
+
+    log.error("[RAK] Re-join failed after max attempts.")
+    return False
+
+
 def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
     """
     Build the 14-byte binary payload compatible with the legacy codec and send it.
@@ -111,10 +199,19 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
         bytes 10-11: stop_x100 (uint16 big-endian)         stop [ft] * 100
         bytes 12-13: site_id (uint16 big-endian)           fixed site ID
     """
+    global _njs_send_counter
 
     if rak is None:
-        logging.debug("[SEND] No RAK instance – skipping uplink.")
+        log.debug("[SEND] No RAK instance – skipping uplink.")
         return False
+
+    # -------- Light join health check --------
+    _njs_send_counter += 1
+    if _njs_send_counter >= _NJS_CHECK_INTERVAL:
+        _njs_send_counter = 0
+        if not ensure_joined(rak):
+            log.warning("[SEND] RAK not joined; skipping uplink this interval.")
+            return False
 
     try:
         # Extract and normalize fields from the telemetry dict
@@ -208,12 +305,14 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
         log.error(f"[SEND] Exception while sending uplink: {e}")
         return False
 
-    
+
 def reconnect_rak(rak: RAK3172Communicator) -> RAK3172Communicator | None:
     """
     Simple reconnect helper used by main.py.
     Currently just calls connect() again and returns the new object (or None).
     """
-    
+    global _njs_send_counter
+
     log.info("[RAK] Attempting RAK reconnect...")
+    _njs_send_counter = 0
     return connect()
