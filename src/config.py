@@ -4,10 +4,10 @@ DEVICE_NAME = "kandiyohi_pi_rak"
 SERIAL_PORT = "/dev/ttyUSB0"  # Update if RAK3172 is on a different port
 
 MAX_RETRIES = 5
-INTERVAL_MINUTES = 0.25
+INTERVAL_MINUTES = 1.00
 
 # Timing settings
-READ_INTERVAL_SECONDS = 10        # How often to check the depth (in seconds)
+READ_INTERVAL_SECONDS = 1        # How often to check the depth (in seconds)
 SEND_INTERVAL_MINUTES = INTERVAL_MINUTES  # Mirror existing setting for compatibility
 
 # Hardware configuration
@@ -25,8 +25,9 @@ LOCAL_ROOT_DIR = "/home/pi"
 LOG_DIR = LOCAL_ROOT_DIR + "/logs"
 
 ALARM_GPIO_PIN = 17           # Panel alarm LED
-HEARTBEAT_GPIO_PIN = 27       # Heartbeat LED
-# We now talk directly to the Numato relay on /dev/ttyACM0 everywhere.
+# HEARTBEAT_GPIO_PIN = 27       # Heartbeat LED
+
+# We now talk directly to the Numato pump starter relay on /dev/ttyACM0 everywhere.
 RELAY_DEV = "/dev/ttyACM0"
 
 # Default setpoint values

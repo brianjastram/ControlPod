@@ -6,6 +6,15 @@ Edit the DEVEUI / APPEUI / APPKEY / BAND values before running.
 Run only when /dev/rak is present.
 """
 
+# --- ensure project root is on sys.path ---
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]   # /home/pi/ControlPod
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# ------------------------------------------
+
 import time
 from src.model.rak3172_comm import RAK3172Communicator
 
@@ -50,6 +59,9 @@ def main():
     send(rak, f"AT+CLASS={LORAWAN_CLASS}")
     send(rak, f"AT+BAND={BAND}")
     send(rak, f"AT+DR={DR}")
+
+    # Force US915 sub-band 2 (channels 8–15 + channel 65)
+    send(rak, "AT+MASK=0002")
 
     # Save configuration to NVM
     send(rak, "AT+SAVE")
