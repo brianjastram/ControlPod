@@ -7,7 +7,10 @@ Handles processing of LoRaWAN downlink payloads received from ChirpStack. This i
 - Logging actions and errors
 """
 import logging
-from src.control import override_flag, set_override_flag
+from src.control import (
+    toggle_override as control_toggle_override,
+    is_override_active as control_is_override_active,
+)
 from src.telemetry import read_depth
 from src.usb_settings import save_zero_offset, load_setpoints, save_setpoints
 from src import shared_state
@@ -35,7 +38,8 @@ def decode_downlink_payload(raw):
     return raw
 
 def is_override_active():
-    return override_flag
+    # Use the control module's file-backed flag so main loop sees updates
+    return control_is_override_active()
 
 # Add process_downlink_command at the bottom of the file
 def process_downlink_command(raw_downlink):
@@ -125,7 +129,8 @@ def process_downlink_command(raw_downlink):
 
 # Helper function to call the override toggle logic
 def toggle_override(state):
-    set_override_flag(state)
+    # Persist override flag so main loop picks it up
+    control_toggle_override(state)
     log.info(f"[OVERRIDE] set to {state}")
 
     """
