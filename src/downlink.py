@@ -26,7 +26,7 @@ def decode_downlink_payload(raw):
       - "HEX" encoding mode, where payload is hex-encoded ASCII, e.g.
         53455453544152543D302E3735 -> "SETSTART=0.75"
 
-    This function just:
+    This function:
       - strips whitespace
       - verifies it looks like hex
       - returns the cleaned string (or None on obvious garbage)
@@ -98,7 +98,8 @@ def process_downlink_command(raw_downlink):
       - "SETALARMHI=<float>" / "SETHIALARM=<float>"
       - "SETALARMLO=<float>" / "SETLOALARM=<float>"
       - "SETOFFSET=<float>" / "SETZERO=<float>" / "SETZEROOFFSET=<float>"
-      - "SETOVERRIDE=<0 or 1>"   (0 = override off, 1 = override on)
+      - "SETOVERRIDE=<0|1|ON|OFF|TRUE|FALSE>"
+        (0/FALSE/OFF -> override False, 1/TRUE/ON -> override True)
 
     Returns True if a valid command was recognized and acted upon, False otherwise.
     """
@@ -160,17 +161,31 @@ def process_downlink_command(raw_downlink):
             log.info(f"[COMMAND] Set zero offset to {command_value}")
             changed = True
 
-        elif command_name == "SETOVERRIDE":
-            # New: remote override via ASCII
-            try:
-                # Anything non-zero -> True, exactly 0 -> False
-                val = float(command_value)
-                state = (val != 0.0)
-                toggle_override(state)
-                log.info(f"[COMMAND] SETOVERRIDE={command_value} -> override set to {state}")
-                changed = True
-            except ValueError:
+        elif command_name in ("SETOVERRIDE", "OVERRIDE"):
+            # Remote override via ASCII
+            val_str = command_value.strip().upper()
+            state = None
+
+            if val_str in ("1", "TRUE", "ON", "YES"):
+                state = True
+            elif val_str in ("0", "FALSE", "OFF", "NO"):
+                state = False
+            else:
+                # Try numeric interpretation: != 0 => True, == 0 => False
+                try:
+                    num = float(command_value)
+                    state = (num != 0.0)
+                except ValueError:
+                    state = None
+
+            if state is None:
                 log.warning(f"[COMMAND] Invalid SETOVERRIDE value: {command_value}")
+            else:
+                toggle_override(state)
+                log.info(
+                    f"[COMMAND] SETOVERRIDE={command_value} -> override set to {state}"
+                )
+                changed = True
 
         else:
             log.error(f"[COMMAND] Invalid downlink command: {ascii_command}")
@@ -183,7 +198,6 @@ def process_downlink_command(raw_downlink):
     return changed
 
 
-# Helper function to call the override toggle logic
 def toggle_override(state):
     """
     Update system override flag and log the state.
@@ -193,7 +207,6 @@ def toggle_override(state):
     log.info(f"[OVERRIDE] set to {state}")
 
 
-# Helper function to wrap zero offset logic from telemetry
 def calibrate_zero_offset():
     """
     Capture the current depth reading and save it as the new zero offset.
@@ -212,7 +225,9 @@ def calibrate_zero_offset():
                 raise RuntimeError("No ADS1115 channel detected")
         except Exception as hw_error:
             # Fallback path (simulation)
-            log.info(f"[ZERO] Hardware depth read failed ({hw_error}); using simulated depth = 0.0 ft")
+            log.info(
+                f"[ZERO] Hardware depth read failed ({hw_error}); using simulated depth = 0.0 ft"
+            )
             depth = 0.0
 
         # Save using the USB settings handler
