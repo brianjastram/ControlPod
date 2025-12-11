@@ -1,6 +1,8 @@
 # FILE: control.py
 
 import logging
+import os
+
 import RPi.GPIO as GPIO
 from src.usb_settings import log_override_change
 from src.config import (ALARM_GPIO_PIN, LOCAL_ROOT_DIR)
@@ -10,8 +12,13 @@ log = logging.getLogger(__name__)
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(ALARM_GPIO_PIN, GPIO.OUT)
-# TODO: CONFIRM THIS LOCATION AFTER CODE REORGANIZATION
-OVERRIDE_FILE = LOCAL_ROOT_DIR + "/control_pod/resources/override_flag.txt"
+
+# Persistent override flag file (real path on the Pi)
+# Result: /home/pi/ControlPod/resources/override_flag.txt
+OVERRIDE_FILE = os.path.join(LOCAL_ROOT_DIR, "ControlPod", "resources", "override_flag.txt")
+
+# Ensure the directory exists so we can write the flag file
+os.makedirs(os.path.dirname(OVERRIDE_FILE), exist_ok=True)
 
 # ---------------------------------------------------------------------------
 # OVERRIDE FLAG (persistent)
@@ -25,6 +32,7 @@ pump_on_state = False
 
 _alarm_state = False
 
+
 def set_pump_state(state: bool):
     """
     Update the pump's state internally.
@@ -33,6 +41,7 @@ def set_pump_state(state: bool):
     """
     global pump_on_state
     pump_on_state = state
+
 
 def get_pump_state() -> bool:
     """
@@ -58,6 +67,7 @@ def toggle_override(state: bool):
     except Exception as e:
         log.error(f"[CONTROL] Failed to toggle override: {e}")
 
+
 def is_override_active() -> bool:
     """
     Override flag (file-backed so main loop sees updates).
@@ -70,6 +80,7 @@ def is_override_active() -> bool:
     except Exception as e:
         log.error(f"[CONTROL] Failed to read override flag: {e}")
         return override_flag
+
 
 def set_override_flag(state: bool):
     """
