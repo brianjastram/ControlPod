@@ -11,81 +11,65 @@ Features:
 - Syncs setpoints from the USB key on startup
 - Applies downlink commands (override, zero, setpoints)
 - Sends JSON telemetry payloads to ChirpStack at INTERVAL_MINUTES
+
+Set CONTROL_POD_MODE (kclf_v1, kclf_v2) to pick hardware config.
 """
 
 import time
 import logging
 from datetime import datetime, timezone
 
+from src import config
 from src import shared_state
 from src import logger
-from src.config import (
-    DEVICE_NAME,
-    INTERVAL_MINUTES,
-    READ_INTERVAL_SECONDS,
-    ALARM_GPIO_PIN,
-    #HEARTBEAT_GPIO_PIN,
-    PUMP_START_FEET,
-    PUMP_STOP_FEET,
-    HI_ALARM_FEET,
-    LO_ALARM_FEET,
-    SITE_NAME,
-)
-from src.telemetry import read_depth
 from src.usb_settings import sync_usb_to_local, load_setpoints
 from src.downlink import process_downlink_command
 from src.control import is_override_active
-from src import rak as rak_service
-from src import relay
+from src.hardware import depth_sensor as depth_hw
+from src.hardware import pump_control
+from src.hardware import radio_rak as rak_service
 from src.model.rak_dummy import DummyRAK
 
-import busio
-import board
-import adafruit_ads1x15.ads1115 as ADS
-from adafruit_ads1x15.analog_in import AnalogIn
-import RPi.GPIO as GPIO
-
-analog_input_channel = None
 logger.setupLogging()
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Global RAK instance + Dummy for bench
+# Hardware instances (set in main)
 # ---------------------------------------------------------------------------
 
-rak = rak_service.connect()
-if rak is None:
-    rak = DummyRAK()
+depth_sensor = None
+pump = None
+rak = None
 
 # ---------------------------------------------------------------------------
 # MAIN CONTROL LOOP
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    global rak, analog_input_channel
-    print("Starting MCTL3 with RAK3172...")
+    global rak, depth_sensor, pump
+    print(f"Starting ControlPod ({config.MODE}) ...")
 
-    # ----------------- GPIO -----------------
-    GPIO.setwarnings(False)
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(ALARM_GPIO_PIN, GPIO.OUT)
-    GPIO.output(ALARM_GPIO_PIN, GPIO.LOW)
+    depth_sensor = depth_hw.build_depth_sensor(config.DEPTH_SENSOR_IMPL)
+    pump = pump_control.build_pump_controller(
+        config.PUMP_DRIVER,
+        config.RELAY_DEV,
+        config.ALARM_GPIO_PIN,
+    )
 
-    # Heartbeat LED setup
-    # GPIO.setup(HEARTBEAT_GPIO_PIN, GPIO.OUT)
-    # GPIO.output(HEARTBEAT_GPIO_PIN, GPIO.LOW)
-    
-    # ----------------- ADS1115 -----------------
-    try:
-        i2c = busio.I2C(board.SCL, board.SDA)
-        ads = ADS.ADS1115(i2c)
-        analog_input_channel = AnalogIn(ads, 0)  # single-ended channel 0
-        shared_state.analog_input_channel = AnalogIn(ads, 0)  # single-ended channel 0
-        log.info("ADS1115 detected on I2C bus.")
-    except Exception as e:
-        ads = None
-        shared_state.analog_input_channel = None
-        log.error(f"[SIM] No ADS1115 detected ({e}); using simulated depth readings.")
+    if config.RADIO_DRIVER != "rak3172":
+        log.warning(f"[RADIO] Driver '{config.RADIO_DRIVER}' not implemented; using DummyRAK.")
+        rak = DummyRAK()
+    else:
+        rak = rak_service.connect()
+        if rak is None:
+            rak = DummyRAK()
+
+    # ----------------- Depth sensor setup -----------------
+    depth_ready = depth_sensor.setup()
+    shared_state.depth_sensor = depth_sensor
+    shared_state.analog_input_channel = getattr(depth_sensor, "chan", None)
+    if not depth_ready:
+        log.warning("[DEPTH] Depth sensor not initialized; readings will be zeroed.")
 
     # ----------------- Pump + alarms state -----------------
     pump_is_on = False
@@ -108,17 +92,17 @@ def main() -> None:
     except Exception as e:
         log.error(f"[MAIN] Failed to load setpoints, using defaults: {e}")
         current_setpoints = {
-            "START_PUMP_AT": PUMP_START_FEET,
-            "STOP_PUMP_AT": PUMP_STOP_FEET,
-            "HI_ALARM": HI_ALARM_FEET,
-            "LO_ALARM": LO_ALARM_FEET,
-            "SITE_NAME": SITE_NAME,
+            "START_PUMP_AT": config.PUMP_START_FEET,
+            "STOP_PUMP_AT": config.PUMP_STOP_FEET,
+            "HI_ALARM": config.HI_ALARM_FEET,
+            "LO_ALARM": config.LO_ALARM_FEET,
+            "SITE_NAME": config.SITE_NAME,
         }
 
     # --------- DETERMINISTIC STARTUP PUMP STATE ----------
     log.info("[PUMP] Startup: forcing pump OFF for known safe state.")
     try:
-        relay.send_relay_command("relay off 0")
+        pump.turn_off()
     except Exception as e:
         log.error(f"[PUMP] Startup: failed to force OFF: {e}")
 
@@ -137,7 +121,7 @@ def main() -> None:
         # ----------------------------------------------------------
         
         try:
-            measurement = read_depth(analog_input_channel)
+            measurement = depth_sensor.read()
             depth = measurement.depth          # feet
             mA = measurement.ma_clamped        # mA
             voltage = measurement.voltage      # volts
@@ -185,11 +169,11 @@ def main() -> None:
             log.error(f"[MAIN] Downlink check error: {e}")
 
         # ---------- Setpoints ----------
-        start_depth = current_setpoints.get("START_PUMP_AT", PUMP_START_FEET)
-        stop_depth  = current_setpoints.get("STOP_PUMP_AT", PUMP_STOP_FEET)
-        hi_alarm    = current_setpoints.get("HI_ALARM", HI_ALARM_FEET)
-        lo_alarm    = current_setpoints.get("LO_ALARM", LO_ALARM_FEET)
-        site_name   = current_setpoints.get("SITE_NAME", SITE_NAME)
+        start_depth = current_setpoints.get("START_PUMP_AT", config.PUMP_START_FEET)
+        stop_depth  = current_setpoints.get("STOP_PUMP_AT", config.PUMP_STOP_FEET)
+        hi_alarm    = current_setpoints.get("HI_ALARM", config.HI_ALARM_FEET)
+        lo_alarm    = current_setpoints.get("LO_ALARM", config.LO_ALARM_FEET)
+        site_name   = current_setpoints.get("SITE_NAME", config.SITE_NAME)
 
         # -----------------------------------------------------------------------
         # PUMP CONTROL (override first)
@@ -199,7 +183,7 @@ def main() -> None:
         if override:
             log.info("[OVERRIDE] ACTIVE → Pump forced OFF.")
             if pump_is_on:
-                relay.turn_pump_off()
+                pump.turn_off()
             pump_is_on = False
         else:
             # Normal automatic pump logic
@@ -207,13 +191,13 @@ def main() -> None:
                 log.info(
                     f"[PUMP] depth={depth:.2f} <= STOP_PUMP_AT={stop_depth:.2f} → OFF"
                 )
-                relay.turn_pump_off()
+                pump.turn_off()
                 pump_is_on = False
             elif (not pump_is_on) and depth >= start_depth:
                 log.info(
                     f"[PUMP] depth={depth:.2f} >= START_PUMP_AT={start_depth:.2f} → ON"
                 )
-                relay.turn_pump_on()
+                pump.turn_on()
                 pump_is_on = True
 
         # ----------------------------------------------------------
@@ -223,17 +207,17 @@ def main() -> None:
         lo_alarm_tripped = depth < lo_alarm
 
         if hi_alarm_tripped or lo_alarm_tripped:
-            relay.set_alarm_light_hw(True)
+            pump.set_alarm_light(True)
         else:
-            relay.set_alarm_light_hw(False)
+            pump.set_alarm_light(False)
 
         alarm_hi_on = hi_alarm_tripped
         alarm_lo_on = lo_alarm_tripped
 
         # ---------- Telemetry send ----------
-        if time.time() - last_send_time >= INTERVAL_MINUTES * 60:
+        if time.time() - last_send_time >= config.INTERVAL_MINUTES * 60:
             telemetry = {
-                "device": DEVICE_NAME,
+                "device": config.DEVICE_NAME,
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "depth": depth,
                 "current_mA": mA,
@@ -264,7 +248,7 @@ def main() -> None:
         #GPIO.output(HEARTBEAT_GPIO_PIN,
         #            GPIO.HIGH if heartbeat_state else GPIO.LOW)
         
-        time.sleep(READ_INTERVAL_SECONDS)
+        time.sleep(config.READ_INTERVAL_SECONDS)
 
 
 if __name__ == "__main__":

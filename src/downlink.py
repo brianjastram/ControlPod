@@ -11,9 +11,9 @@ from src.control import (
     toggle_override as control_toggle_override,
     is_override_active as control_is_override_active,
 )
-from src.telemetry import read_depth
 from src.usb_settings import save_zero_offset, load_setpoints, save_setpoints
 from src import shared_state
+from src.telemetry import read_depth
 
 log = logging.getLogger(__name__)
 
@@ -217,7 +217,11 @@ def calibrate_zero_offset():
 
         # Try hardware path first
         try:
-            if shared_state.analog_input_channel is not None:
+            if getattr(shared_state, "depth_sensor", None) is not None:
+                depth_telemetry = shared_state.depth_sensor.read()
+                depth = depth_telemetry.depth
+                log.info("[ZERO] Using depth_sensor.read()")
+            elif shared_state.analog_input_channel is not None:
                 depth_telemetry = read_depth(shared_state.analog_input_channel)
                 depth = depth_telemetry.depth
                 log.info("[ZERO] Using telemetry.read_depth(chan)")

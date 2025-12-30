@@ -24,7 +24,7 @@ DEVEUI = "AC1F09FFFE1D83AD"
 APPEUI = "AC1F09FFF9153172"
 APPKEY = "AC1F09FFFE1D83ADAC1F09FFF9153172"
 LORAWAN_CLASS = "A"   # usually A
-BAND = 5             # example: US915 often uses band index like 2; adjust as needed
+BAND = 5              # example: US915 often uses band index like 2; adjust as needed
 DR = 3                # data rate you're already using in main.py (AT+DR=3)
 
 def send(rak, cmd):
@@ -33,7 +33,7 @@ def send(rak, cmd):
     for line in resp_lines:
         print(f"<< {line}")
     print()
-    time.sleep(0.3)
+    time.sleep(2.5)
 
 
 def main():
@@ -60,11 +60,11 @@ def main():
     send(rak, f"AT+BAND={BAND}")
     send(rak, f"AT+DR={DR}")
 
-    # Force US915 sub-band 2 (channels 8–15 + channel 65)
-    send(rak, "AT+MASK=0002")
+    # Force US915 sub-band 1 (channels 0-7)
+    send(rak, "AT+MASK=0001")
 
     # Save configuration to NVM
-    send(rak, "AT+SAVE")
+    # send(rak, "AT+SAVE") # Command not be supported on all firmware versions
 
     # Optional: restart module to apply everything cleanly
     send(rak, "ATZ")
