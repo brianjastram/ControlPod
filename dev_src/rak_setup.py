@@ -33,7 +33,7 @@ def send(rak, cmd):
     for line in resp_lines:
         print(f"<< {line}")
     print()
-    time.sleep(0.3)
+    time.sleep(3.0)  # small delay to ensure command is processed
 
 
 def main():
@@ -60,11 +60,11 @@ def main():
     send(rak, f"AT+BAND={BAND}")
     send(rak, f"AT+DR={DR}")
 
-    # Force US915 sub-band 2 (channels 8–15 + channel 65)
-    send(rak, "AT+MASK=0002")
+    # Force US915 sub-band 2 (channels 0-7)
+    send(rak, "AT+MASK=0001")
 
     # Save configuration to NVM
-    send(rak, "AT+SAVE")
+    # send(rak, "AT+SAVE") # Firmware dependent; some auto-save on changes
 
     # Optional: restart module to apply everything cleanly
     send(rak, "ATZ")
