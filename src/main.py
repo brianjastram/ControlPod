@@ -54,6 +54,7 @@ def main() -> None:
         config.PUMP_DRIVER,
         config.RELAY_DEV,
         config.ALARM_GPIO_PIN,
+        relay_candidates=getattr(config, "RELAY_PORT_CANDIDATES", None),
     )
 
     if config.RADIO_DRIVER != "rak3172":
@@ -111,6 +112,7 @@ def main() -> None:
 
     # --------- Telemetry timer ----------
     last_send_time = time.time()
+    depth_warning_logged = False
 
     # =====================================================
     # MAIN LOOP
@@ -121,6 +123,12 @@ def main() -> None:
         # ----------------------------------------------------------
         
         try:
+            if hasattr(depth_sensor, "initialized") and not getattr(depth_sensor, "initialized"):
+                if not depth_warning_logged:
+                    log.warning("[MAIN] Depth sensor not initialized; using zeros until available.")
+                    depth_warning_logged = True
+                raise RuntimeError("Depth sensor not initialized; skipping read.")
+
             measurement = depth_sensor.read()
             depth = measurement.depth          # feet
             mA = measurement.ma_clamped        # mA
@@ -130,7 +138,6 @@ def main() -> None:
                 f"[MEASURE] depth={depth:.2f} ft  mA={mA:.3f}  V={voltage:.3f}"
             )
         except Exception as e:
-            log.error(f"[MAIN] Error reading depth: {e}")
             depth, mA, voltage = 0.0, 0.0, 0.0
 
 

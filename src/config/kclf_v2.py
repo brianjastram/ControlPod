@@ -12,7 +12,8 @@ ALARM_DRIVER = "gpio"
 RADIO_DRIVER = "rak3172"
 
 # RS485 / Waveshare AI485 settings
-AI485_PORT = "/dev/ttyUSB1"     # USB-to-RS485 adapter port
+AI485_PORT = "/dev/ttyUSB1"     # Primary USB-to-RS485 adapter port
+AI485_PORT_CANDIDATES = ["/dev/ttyUSB1", "/dev/ttyUSB0", "/dev/ttyUSB2", "/dev/ttyUSB3"]
 AI485_BAUD = 9600
 AI485_DEVICE_ID = 1            # Modbus address
 AI485_CHANNEL = 0              # 0-7 (registers 0x0000-0x0007 map to CH1-CH8)
@@ -21,5 +22,17 @@ AI485_MAX_MA = 20.0
 AI485_MIN_MA = 4.0
 AI485_DATA_TYPE = 0x0003       # 4-20 mA mode per datasheet
 AI485_SET_MODE_ON_BOOT = True  # Write data type on startup
+
+# Radio and pump port fallbacks (USB hub friendly)
+SERIAL_PORT = "/dev/ttyUSB0"
+RAK_PORT_CANDIDATES = ["/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyAMA0"]
+RELAY_PORT = "/dev/rakradio"
+RELAY_DEV = "/dev/ttyACM0"
+RELAY_PORT_CANDIDATES = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyUSB2", "/dev/ttyUSB3"]
+
+# USB / local paths (override if your mount point differs)
+USB_MOUNT_PATH = "/media/usb"
+LOCAL_SETPOINTS_FILE = "/home/pi/setpoints.json"
+USB_SETPOINTS_FILE = "/media/usb/setpoints.json"
 
 __all__ = [name for name in globals().keys() if name.isupper() or name.endswith("_IMPL")]

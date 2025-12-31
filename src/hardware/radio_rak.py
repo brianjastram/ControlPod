@@ -31,12 +31,15 @@ def _parse_njs_response(lines: list[str]) -> bool:
 
 
 def connect(port: Optional[str] = None) -> Optional[RAK3172Communicator]:
-    port = port or getattr(config, "SERIAL_PORT", "/dev/rak")
+    primary = port or getattr(config, "SERIAL_PORT", "/dev/rak")
+    candidates = getattr(config, "RAK_PORT_CANDIDATES", [])
+    ports_to_try = [p for p in [primary, *candidates] if p]
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            rak = RAK3172Communicator(port)
+            port_try = ports_to_try[(attempt - 1) % len(ports_to_try)]
+            rak = RAK3172Communicator(port_try)
             rak.connect()
-            log.info(f"[RAK] Connected to RAK3172 on {port}")
+            log.info(f"[RAK] Connected to RAK3172 on {port_try}")
 
             try:
                 rak.send_command("AT+NWM=1")

@@ -1,24 +1,34 @@
-﻿import os
+import os
 import json
 import logging
 from datetime import datetime
 import time
 import shutil
+
 from src.config import LOG_DIR
 
 log = logging.getLogger(__name__)
+
+# Allow mount paths to be overridden in config
+try:
+    from src import config
+except Exception:
+    config = None
 
 LOCAL_LOG_DIR = LOG_DIR
 
 LOCAL_OVERRIDE_LOG = os.path.join(LOCAL_LOG_DIR, "override_log.txt")
 LOCAL_SETTINGS_LOG = os.path.join(LOCAL_LOG_DIR, "settings_log.txt")
 
-USB_MOUNT_PATH = "/media/usb"
-SETPOINTS_FILE = os.path.join(USB_MOUNT_PATH, "setpoints.json")
+USB_MOUNT_PATH = getattr(config, "USB_MOUNT_PATH", "/media/usb")
+USB_SETPOINTS_FILE = getattr(config, "USB_SETPOINTS_FILE", os.path.join(USB_MOUNT_PATH, "setpoints.json"))
+SETPOINTS_FILE = USB_SETPOINTS_FILE  # alias for backward compatibility
 SETTINGS_LOG_FILE = os.path.join(USB_MOUNT_PATH, "settings_log.txt")
 COMMAND_FILE = os.path.join(USB_MOUNT_PATH, "command.txt")
 
 OVERRIDE_LOG_FILE = os.path.join(USB_MOUNT_PATH, "override_log.txt")
+LOCAL_SETPOINTS_FILE = getattr(config, "LOCAL_SETPOINTS_FILE", "/home/pi/setpoints.json")
+
 
 def _log_to_targets(message: str, targets):
     for path in targets:
@@ -33,6 +43,7 @@ def _log_to_targets(message: str, targets):
                 os.fsync(f.fileno())   # force write to media
         except Exception as e:
             log.warning(f"[LOG WRITE FAILED] {path}: {e}")
+
 
 def log_override_change(state: bool, source: str = "runtime"):
     """Log an override change to both local and USB logs."""
@@ -61,6 +72,7 @@ def load_zero_offset():
         log.error(f"Failed to load zero offset: {e}")
         return 0.0
 
+
 def save_zero_offset(offset_ft):
     """Update the zero_offset_ft and ZERO_OFFSET values in setpoints.json."""
     try:
@@ -78,6 +90,7 @@ def save_zero_offset(offset_ft):
     except Exception as e:
         log.error(f"Failed to save zero offset: {e}")
 
+
 def load_setpoints():
     """Load setpoints from the USB key."""
     if not os.path.exists(SETPOINTS_FILE):
@@ -89,6 +102,7 @@ def load_setpoints():
 
 # Timestamp for last write to settings_log.txt
 last_write_time = 0  # global timestamp
+
 
 def save_setpoints(setpoints):
     """
@@ -166,7 +180,7 @@ def update_setpoints_if_changed(current_setpoints):
 
 # --- Sync Logic Between USB and Local Files ---
 
-LOCAL_SETPOINTS_FILE = "/home/pi/setpoints.json"
+LOCAL_SETPOINTS_FILE = getattr(config, "LOCAL_SETPOINTS_FILE", "/home/pi/setpoints.json")
 
 def sync_usb_to_local():
     """

@@ -91,6 +91,9 @@ class Rs485DepthSensor(DepthSensor):
 
     def __init__(self):
         self.port = getattr(config, "AI485_PORT", "/dev/ttyUSB1")
+        self.port_candidates = getattr(
+            config, "AI485_PORT_CANDIDATES", ["/dev/ttyUSB1", "/dev/ttyUSB0"]
+        )
         self.baud = getattr(config, "AI485_BAUD", 9600)
         self.device_id = getattr(config, "AI485_DEVICE_ID", 1)
         self.channel = getattr(config, "AI485_CHANNEL", 0)
@@ -102,21 +105,33 @@ class Rs485DepthSensor(DepthSensor):
         self.initialized = False
 
     def setup(self) -> bool:
-        try:
-            with serial.Serial(self.port, self.baud, timeout=1) as ser:
-                ser.reset_input_buffer()
-                if self.set_mode_on_boot:
-                    reg_addr = 0x1000 + self.channel  # 0x1000-0x1007 map to CH1-CH8
-                    frame = _build_write_single_reg(self.device_id, reg_addr, self.data_type)
-                    ser.write(frame)
-                    ser.flush()
-                    time.sleep(0.05)
-            self.initialized = True
-            log.info(f"[DEPTH] RS485 ready on {self.port} (device {self.device_id})")
-        except Exception as e:
-            self.initialized = False
-            log.error(f"[DEPTH] RS485 init failed on {self.port}: {e}")
-        return self.initialized
+        ports_to_try = [p for p in [self.port, *self.port_candidates] if p]
+        last_error = None
+
+        for candidate in ports_to_try:
+            try:
+                with serial.Serial(candidate, self.baud, timeout=1) as ser:
+                    ser.reset_input_buffer()
+                    if self.set_mode_on_boot:
+                        reg_addr = 0x1000 + self.channel  # 0x1000-0x1007 map to CH1-CH8
+                        frame = _build_write_single_reg(self.device_id, reg_addr, self.data_type)
+                        ser.write(frame)
+                        ser.flush()
+                        time.sleep(0.05)
+                self.port = candidate
+                self.initialized = True
+                log.info(f"[DEPTH] RS485 ready on {self.port} (device {self.device_id})")
+                return True
+            except Exception as e:
+                last_error = e
+                continue
+
+        self.initialized = False
+        if last_error:
+            log.error(f"[DEPTH] RS485 init failed on {ports_to_try}: {last_error}")
+        else:
+            log.error("[DEPTH] RS485 init failed: no candidate ports provided.")
+        return False
 
     def _read_raw_channel(self) -> int:
         frame = _build_read_input_regs(self.device_id, self.channel, 1)
