@@ -233,11 +233,7 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
         payload_hex = payload.hex()
 
         resp = rak.send_data(payload_hex)
-        if resp is None or str(resp).strip() == "":
-            log.debug("[SEND] RAK: no response")
-            return False
-
-        resp_str = str(resp).strip()
+        resp_str = "" if resp is None else str(resp).strip()
         extra = ""
         try:
             lines = getattr(rak, "last_response_lines", [])
@@ -245,13 +241,14 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
                 extra = " | raw=" + " || ".join(lines)
         except Exception:
             pass
-        log.info(f"[SEND] RAK: {resp_str}{extra}")
+        log.info(f"[SEND] RAK: {resp_str or 'NO_RESP'}{extra}")
 
-        if "AT_NO_NETWORK_JOINED" in resp_str:
+        if resp_str and "AT_NO_NETWORK_JOINED" in resp_str:
             log.error("[SEND] RAK reports no network joined.")
             return False
 
-        return True
+        # Treat empty/no-response as best-effort success (module often silent on AT+SEND)
+        return bool(resp_str == "" or "ERROR" not in resp_str)
 
     except Exception as e:
         log.error(f"[SEND] Exception while sending uplink: {e}")
