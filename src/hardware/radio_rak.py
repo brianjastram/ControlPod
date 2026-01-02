@@ -86,6 +86,14 @@ def connect(port: Optional[str] = None) -> Optional[RAK3172Communicator]:
             except Exception as e:
                 log.warning(f"[RAK] NWM/NJM setup warning: {e}")
 
+            # Configure ADR / DR / confirm mode to stable values
+            try:
+                rak.send_command(f"AT+ADR={getattr(config, 'LORA_ADR', 0)}")
+                rak.send_command(f"AT+DR={getattr(config, 'LORA_DR', 3)}")
+                rak.send_command(f"AT+CFM={getattr(config, 'LORA_CFM', 0)}")
+            except Exception as e:
+                log.warning(f"[RAK] ADR/DR/CFM setup warning: {e}")
+
             joined = False
             try:
                 status = _query_join_status(rak)

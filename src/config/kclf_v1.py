@@ -19,6 +19,11 @@ INTERVAL_MINUTES = 1.00
 READ_INTERVAL_SECONDS = 1  # How often to check depth (seconds)
 SEND_INTERVAL_MINUTES = INTERVAL_MINUTES
 
+# LoRaWAN radio defaults (RAK3172)
+LORA_DR = 3   # US915 DR3 (SF7/125k) fits 14-byte payload
+LORA_ADR = 0  # Disable ADR to keep DR stable
+LORA_CFM = 0  # Unconfirmed uplinks
+
 # Retry limits
 MAX_RETRIES = 5
 
@@ -55,6 +60,9 @@ __all__ = [
     "INTERVAL_MINUTES",
     "READ_INTERVAL_SECONDS",
     "SEND_INTERVAL_MINUTES",
+    "LORA_DR",
+    "LORA_ADR",
+    "LORA_CFM",
     "MAX_RETRIES",
     "SERIAL_PORT",
     "RELAY_PORT",
