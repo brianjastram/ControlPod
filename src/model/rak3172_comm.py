@@ -106,7 +106,7 @@ class RAK3172Communicator:
             f"use str (hex) or bytes."
         )
 
-    def send_data(self, payload: Union[str, bytes, bytearray]) -> str:
+    def send_data(self, payload: Union[str, bytes, bytearray], port: int = 1, confirmed: bool = False) -> str:
         """
         Send uplink data using AT+SEND and capture any RX_1 downlink.
         Treats immediate "OK" as a successful send (RAK3172 behavior).
@@ -115,7 +115,9 @@ class RAK3172Communicator:
             raise ConnectionError("Serial connection is not open.")
 
         hex_payload = self._normalize_hex_payload(payload)
-        at_command = f"AT+SEND=1:{hex_payload}"
+        # RUI4 expects port in the command. Mode 1=unconfirmed, 2=confirmed.
+        mode = 2 if confirmed else 1
+        at_command = f"AT+SEND={mode}:{port}:{hex_payload}"
 
         # Send the command
         response_lines = self.send_command(at_command)

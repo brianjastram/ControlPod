@@ -263,7 +263,8 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
         payload_hex = payload.hex()
         log.debug(f"[SEND] Payload hex ({len(payload_hex)} chars): {payload_hex}")
 
-        resp = rak.send_data(payload_hex)
+        # First attempt: unconfirmed port 1
+        resp = rak.send_data(payload_hex, port=1, confirmed=False)
         resp_str = "" if resp is None else str(resp).strip()
         try:
             raw_lines = getattr(rak, "last_response_lines", [])
