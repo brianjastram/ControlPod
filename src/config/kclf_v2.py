@@ -6,14 +6,15 @@ from .kclf_v1 import *
 MODE_NAME = "kclf_v2"
 
 # Hardware selectors
-DEPTH_SENSOR_IMPL = "rs485"
+# NOTE: switch back to "rs485" when the RS485 adapter is connected.
+DEPTH_SENSOR_IMPL = "ads1115"
 PUMP_DRIVER = "numato_serial"
 ALARM_DRIVER = "gpio"
 RADIO_DRIVER = "rak3172"
 
 # RS485 / Waveshare AI485 settings
 AI485_PORT = "/dev/ttyUSB1"     # Primary USB-to-RS485 adapter port
-AI485_PORT_CANDIDATES = ["/dev/ttyUSB1", "/dev/ttyUSB0", "/dev/ttyUSB2", "/dev/ttyUSB3"]
+AI485_PORT_CANDIDATES = ["/dev/ttyUSB1", "/dev/ttyUSB2", "/dev/ttyUSB3"]
 AI485_BAUD = 9600
 AI485_DEVICE_ID = 1            # Modbus address
 AI485_CHANNEL = 0              # 0-7 (registers 0x0000-0x0007 map to CH1-CH8)
