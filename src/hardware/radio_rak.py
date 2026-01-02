@@ -122,14 +122,15 @@ def ensure_joined(
     max_join_attempts: int = 2,
     join_cmd: str = "AT+JOIN=1:1:10:5",
 ) -> bool:
-            resp = _query_join_status(rak)
-            log.info(f"[RAK] NJS check -> {' | '.join(resp)}")
-            if _parse_njs_response(resp):
-                return True
-            if resp:
-                log.warning(f"[RAK] Join check did not report joined: {' | '.join(resp)}")
-            else:
-                log.warning("[RAK] NJS check returned no data.")
+    # 1) Query join status
+    resp = _query_join_status(rak)
+    log.info(f"[RAK] NJS check -> {' | '.join(resp)}")
+    if _parse_njs_response(resp):
+        return True
+    if resp:
+        log.warning(f"[RAK] Join check did not report joined: {' | '.join(resp)}")
+    else:
+        log.warning("[RAK] NJS check returned no data.")
 
     log.warning("[RAK] Module reports NOT JOINED; attempting re-join...")
 
