@@ -69,6 +69,72 @@ def _query_join_status(rak: RAK3172Communicator) -> list[str]:
     return []
 
 
+def _parse_setting(lines: list[str], key: str) -> Optional[int]:
+    prefix = f"AT+{key}="
+    for line in lines:
+        s = line.strip().upper()
+        if s.startswith(prefix):
+            value = s[len(prefix):].strip()
+            digits = ""
+            for ch in value:
+                if ch.isdigit():
+                    digits += ch
+                else:
+                    break
+            if digits:
+                return int(digits)
+    return None
+
+
+def _get_setting(rak: RAK3172Communicator, key: str) -> Optional[int]:
+    cmds = [f"AT+{key}=?", f"AT+{key}?", f"AT+{key}"]
+    for cmd in cmds:
+        try:
+            resp = rak.send_command(cmd)
+        except Exception as e:
+            log.debug(f"[RAK] {key} query failed for {cmd}: {e}")
+            continue
+        value = _parse_setting(resp, key)
+        if value is not None:
+            return value
+    return None
+
+
+def _ensure_radio_config(rak: RAK3172Communicator, *, force: bool = False) -> None:
+    desired = [
+        ("ADR", int(getattr(config, "LORA_ADR", 0))),
+        ("DR", int(getattr(config, "LORA_DR", 3))),
+        ("CFM", int(getattr(config, "LORA_CFM", 0))),
+    ]
+
+    if force:
+        for key, value in desired:
+            try:
+                rak.send_command(f"AT+{key}={value}")
+            except Exception as e:
+                log.warning(f"[RAK] {key}={value} apply warning: {e}")
+        log.debug(
+            "[RAK] Forced ADR/DR/CFM -> ADR=%s DR=%s CFM=%s",
+            desired[0][1],
+            desired[1][1],
+            desired[2][1],
+        )
+        return
+
+    for key, desired_value in desired:
+        current = _get_setting(rak, key)
+        if current == desired_value:
+            continue
+        try:
+            rak.send_command(f"AT+{key}={desired_value}")
+            if current is None:
+                log.info(f"[RAK] Set {key}={desired_value} (was unknown)")
+            else:
+                log.info(f"[RAK] Set {key}={desired_value} (was {current})")
+        except Exception as e:
+            log.warning(f"[RAK] {key}={desired_value} apply warning: {e}")
+
+
 def connect(port: Optional[str] = None) -> Optional[RAK3172Communicator]:
     primary = port or getattr(config, "SERIAL_PORT", "/dev/rak")
     candidates = getattr(config, "RAK_PORT_CANDIDATES", [])
@@ -88,9 +154,7 @@ def connect(port: Optional[str] = None) -> Optional[RAK3172Communicator]:
 
             # Configure ADR / DR / confirm mode to stable values
             try:
-                rak.send_command(f"AT+ADR={getattr(config, 'LORA_ADR', 0)}")
-                rak.send_command(f"AT+DR={getattr(config, 'LORA_DR', 3)}")
-                rak.send_command(f"AT+CFM={getattr(config, 'LORA_CFM', 0)}")
+                _ensure_radio_config(rak, force=True)
             except Exception as e:
                 log.warning(f"[RAK] ADR/DR/CFM setup warning: {e}")
 
@@ -196,7 +260,7 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
     global _njs_send_counter
 
     if rak is None:
-        log.debug("[SEND] No RAK instance — skipping uplink.")
+        log.debug("[SEND] No RAK instance; skipping uplink.")
         return False
 
     is_real_rak = hasattr(rak, "send_command")
@@ -208,6 +272,11 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
             if not ensure_joined(rak):
                 log.warning("[SEND] RAK not joined; skipping uplink this interval.")
                 return False
+        if getattr(config, "LORA_ENFORCE_EVERY_SEND", False):
+            try:
+                _ensure_radio_config(rak, force=True)
+            except Exception as e:
+                log.warning(f"[RAK] ADR/DR/CFM enforce warning: {e}")
 
     try:
         depth_ft = float(telemetry.get("depth", 0.0))
@@ -271,8 +340,14 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
         payload_hex = payload.hex()
         log.debug(f"[SEND] Payload hex ({len(payload_hex)} chars): {payload_hex}")
 
-        # First attempt: unconfirmed legacy format (works on RUI_4.0.6)
-        resp = rak.send_data(payload_hex, port=1, confirmed=False, use_port_format=False)
+        # First attempt: legacy format (works on RUI_4.0.6)
+        confirmed = bool(getattr(config, "LORA_CFM", 0))
+        resp = rak.send_data(
+            payload_hex,
+            port=1,
+            confirmed=confirmed,
+            use_port_format=False,
+        )
         resp_str = "" if resp is None else str(resp).strip()
         try:
             raw_lines = getattr(rak, "last_response_lines", [])

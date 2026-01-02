@@ -23,6 +23,7 @@ SEND_INTERVAL_MINUTES = INTERVAL_MINUTES
 LORA_DR = 3   # US915 DR3 (SF7/125k) fits 14-byte payload
 LORA_ADR = 0  # Disable ADR to keep DR stable
 LORA_CFM = 0  # Unconfirmed uplinks
+LORA_ENFORCE_EVERY_SEND = True  # Re-apply ADR/DR/CFM before each uplink
 
 # Retry limits
 MAX_RETRIES = 5
@@ -63,6 +64,7 @@ __all__ = [
     "LORA_DR",
     "LORA_ADR",
     "LORA_CFM",
+    "LORA_ENFORCE_EVERY_SEND",
     "MAX_RETRIES",
     "SERIAL_PORT",
     "RELAY_PORT",
