@@ -247,8 +247,12 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
             log.error("[SEND] RAK reports no network joined.")
             return False
 
-        # Treat empty/no-response as best-effort success (module often silent on AT+SEND)
-        return bool(resp_str == "" or "ERROR" not in resp_str)
+        # Treat OK, OK_NO_RESP, or empty as success; only fail on explicit ERROR
+        if not resp_str:
+            return True
+        if resp_str.startswith("ERROR"):
+            return False
+        return True
 
     except Exception as e:
         log.error(f"[SEND] Exception while sending uplink: {e}")
