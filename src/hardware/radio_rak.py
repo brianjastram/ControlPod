@@ -164,12 +164,11 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
     is_real_rak = hasattr(rak, "send_command")
 
     if is_real_rak:
-        _njs_send_counter += 1
-        if _njs_send_counter >= _NJS_CHECK_INTERVAL:
-            _njs_send_counter = 0
-            if not ensure_joined(rak):
-                log.warning("[SEND] RAK not joined; skipping uplink this interval.")
-                return False
+        # Always ensure join health before sending to avoid silent failures
+        if not ensure_joined(rak):
+            log.warning("[SEND] RAK not joined; skipping uplink this interval.")
+            return False
+        _njs_send_counter = 0
 
     try:
         depth_ft = float(telemetry.get("depth", 0.0))
@@ -239,8 +238,10 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
             lines = getattr(rak, "last_response_lines", [])
             if lines:
                 extra = " | raw=" + " || ".join(lines)
+            else:
+                extra = " | raw=[]"
         except Exception:
-            pass
+            extra = ""
         log.info(f"[SEND] RAK: {resp_str or 'NO_RESP'}{extra}")
 
         if resp_str and "AT_NO_NETWORK_JOINED" in resp_str:
