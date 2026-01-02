@@ -30,6 +30,30 @@ def _parse_njs_response(lines: list[str]) -> bool:
     return False
 
 
+def _interpret_njs(lines: list[str]) -> tuple[bool, bool]:
+    """
+    Returns (joined, not_joined) based on response lines.
+    """
+    joined = False
+    not_joined = False
+    for line in lines:
+        s = line.strip().upper()
+        if not s:
+            continue
+        if "AT_NO_NETWORK_JOINED" in s:
+            not_joined = True
+        if "NJS" in s:
+            if "1" in s:
+                joined = True
+            elif "0" in s:
+                not_joined = True
+        elif s == "1":
+            joined = True
+        elif s == "0":
+            not_joined = True
+    return joined, not_joined
+
+
 def _query_join_status(rak: RAK3172Communicator) -> list[str]:
     """
     Try multiple join-status commands (RUI3/RUI4 differences).
@@ -125,12 +149,18 @@ def ensure_joined(
     # 1) Query join status
     resp = _query_join_status(rak)
     log.info(f"[RAK] NJS check -> {' | '.join(resp)}")
-    if _parse_njs_response(resp):
+    joined, not_joined = _interpret_njs(resp)
+    if joined:
         return True
-    if resp:
-        log.warning(f"[RAK] Join check did not report joined: {' | '.join(resp)}")
+    if not_joined:
+        log.warning(f"[RAK] Join check reported NOT JOINED: {' | '.join(resp)}")
     else:
-        log.warning("[RAK] NJS check returned no data.")
+        # Empty/ambiguous responses: assume still joined to avoid needless re-join
+        if not resp:
+            log.warning("[RAK] NJS check returned no data; assuming joined.")
+        else:
+            log.warning(f"[RAK] NJS ambiguous ({' | '.join(resp)}); assuming joined.")
+        return True
 
     log.warning("[RAK] Module reports NOT JOINED; attempting re-join...")
 
@@ -164,11 +194,12 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
     is_real_rak = hasattr(rak, "send_command")
 
     if is_real_rak:
-        # Always ensure join health before sending to avoid silent failures
-        if not ensure_joined(rak):
-            log.warning("[SEND] RAK not joined; skipping uplink this interval.")
-            return False
-        _njs_send_counter = 0
+        _njs_send_counter += 1
+        if _njs_send_counter >= _NJS_CHECK_INTERVAL:
+            _njs_send_counter = 0
+            if not ensure_joined(rak):
+                log.warning("[SEND] RAK not joined; skipping uplink this interval.")
+                return False
 
     try:
         depth_ft = float(telemetry.get("depth", 0.0))

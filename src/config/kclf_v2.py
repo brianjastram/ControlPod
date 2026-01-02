@@ -25,8 +25,8 @@ AI485_DATA_TYPE = 0x0003       # 4-20 mA mode per datasheet
 AI485_SET_MODE_ON_BOOT = True  # Write data type on startup
 
 # Radio and pump port fallbacks (USB hub friendly)
-SERIAL_PORT = "/dev/ttyUSB0"
-RAK_PORT_CANDIDATES = ["/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyAMA0"]
+SERIAL_PORT = "/dev/rak"
+RAK_PORT_CANDIDATES = ["/dev/rak", "/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyAMA0"]
 RELAY_PORT = "/dev/rakradio"
 RELAY_DEV = "/dev/ttyACM0"
 RELAY_PORT_CANDIDATES = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyUSB2", "/dev/ttyUSB3"]
