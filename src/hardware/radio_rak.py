@@ -238,7 +238,14 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
             return False
 
         resp_str = str(resp).strip()
-        log.info(f"[SEND] RAK: {resp_str}")
+        extra = ""
+        try:
+            lines = getattr(rak, "last_response_lines", [])
+            if lines:
+                extra = " | raw=" + " || ".join(lines)
+        except Exception:
+            pass
+        log.info(f"[SEND] RAK: {resp_str}{extra}")
 
         if "AT_NO_NETWORK_JOINED" in resp_str:
             log.error("[SEND] RAK reports no network joined.")

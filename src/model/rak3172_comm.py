@@ -14,6 +14,7 @@ class RAK3172Communicator:
         - check_downlink() -> last RX_1 hex payload (if any), else None
         """
         self.last_downlink: Optional[str] = None
+        self.last_response_lines: list[str] = []
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
@@ -118,6 +119,7 @@ class RAK3172Communicator:
 
         # Send the command
         response_lines = self.send_command(at_command)
+        self.last_response_lines = response_lines
 
         # Consider "OK" or "+EVT:TX_DONE" as success.
         # Always read for a short window to capture late TX_DONE even if OK was seen.
@@ -131,8 +133,8 @@ class RAK3172Communicator:
 
         success = _check_lines(response_lines)
 
-        # Read for up to ~3s to catch late events
-        deadline = time.time() + 3.0
+        # Read for up to ~5s to catch late events
+        deadline = time.time() + 5.0
         while time.time() < deadline:
             line = self.ser.readline().decode("utf-8", errors="ignore").strip()
             if line:
