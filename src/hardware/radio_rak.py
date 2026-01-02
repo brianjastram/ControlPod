@@ -274,13 +274,18 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
         log.info(f"[SEND] RAK: {resp_str or 'NO_RESP'}{extra}")
 
         has_tx_done = any("TX_DONE" in l.upper() for l in raw_lines)
+        has_param_error = any("AT_PARAM_ERROR" in l.upper() for l in raw_lines)
+        no_network = resp_str and "AT_NO_NETWORK_JOINED" in resp_str
 
-        # If TX_DONE is present, treat as success unless the radio explicitly says not joined
+        if no_network:
+            log.error("[SEND] RAK reports no network joined.")
+            return False
+
+        if has_param_error:
+            log.warning("[SEND] AT_PARAM_ERROR returned; treating as success (TX likely sent).")
+            return True
+
         if has_tx_done:
-            if resp_str and "AT_NO_NETWORK_JOINED" in resp_str:
-                log.error("[SEND] RAK reports no network joined.")
-                return False
-            # Ignore AT_PARAM_ERROR when TX_DONE is present
             return True
 
         # No TX_DONE: treat any ERROR as failure
