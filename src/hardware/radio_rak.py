@@ -263,8 +263,8 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
         payload_hex = payload.hex()
         log.debug(f"[SEND] Payload hex ({len(payload_hex)} chars): {payload_hex}")
 
-        # First attempt: unconfirmed port 1
-        resp = rak.send_data(payload_hex, port=1, confirmed=False)
+        # First attempt: unconfirmed port 1 (RUI4 format)
+        resp = rak.send_data(payload_hex, port=1, confirmed=False, use_port_format=True)
         resp_str = "" if resp is None else str(resp).strip()
         try:
             raw_lines = getattr(rak, "last_response_lines", [])
@@ -274,20 +274,38 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
         extra = " | raw=" + (" || ".join(raw_lines) if raw_lines else "[]")
         log.info(f"[SEND] RAK: {resp_str or 'NO_RESP'}{extra}")
 
+        # If AT_PARAM_ERROR, retry once with legacy format (no port)
+        has_param_error = any("AT_PARAM_ERROR" in l.upper() for l in raw_lines) or (
+            resp_str and "AT_PARAM_ERROR" in resp_str.upper()
+        )
+        if has_param_error:
+            log.warning("[SEND] AT_PARAM_ERROR on port-format send; retrying legacy AT+SEND without port.")
+            resp = rak.send_data(payload_hex, port=1, confirmed=False, use_port_format=False)
+            resp_str = "" if resp is None else str(resp).strip()
+            try:
+                raw_lines = getattr(rak, "last_response_lines", [])
+            except Exception:
+                raw_lines = []
+            extra = " | raw=" + (" || ".join(raw_lines) if raw_lines else "[]")
+            log.info(f"[SEND RETRY] RAK: {resp_str or 'NO_RESP'}{extra}")
+
         has_tx_done = any("TX_DONE" in l.upper() for l in raw_lines)
-        has_param_error = any("AT_PARAM_ERROR" in l.upper() for l in raw_lines)
+        has_param_error = any("AT_PARAM_ERROR" in l.upper() for l in raw_lines) or (
+            resp_str and "AT_PARAM_ERROR" in resp_str.upper()
+        )
         no_network = resp_str and "AT_NO_NETWORK_JOINED" in resp_str
 
         if no_network:
             log.error("[SEND] RAK reports no network joined.")
             return False
 
-        if has_param_error:
-            log.warning("[SEND] AT_PARAM_ERROR returned; treating as success (TX likely sent).")
-            return True
-
         if has_tx_done:
             return True
+
+        # If AT_PARAM_ERROR without TX_DONE, treat as failure
+        if has_param_error:
+            log.error("[SEND] AT_PARAM_ERROR without TX_DONE; treating as failure.")
+            return False
 
         # No TX_DONE: treat any ERROR as failure
         for line in raw_lines:
