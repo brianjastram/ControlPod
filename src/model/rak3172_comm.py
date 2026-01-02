@@ -59,14 +59,24 @@ class RAK3172Communicator:
             raise ConnectionError("Serial connection is not open.")
 
         # Ensure proper line ending and encode
+        self.ser.reset_input_buffer()
         self.ser.write((command + "\r\n").encode("utf-8"))
-        # Give module time to respond
-        time.sleep(0.5)
+        self.ser.flush()
 
-        raw = self.ser.read_all().decode("utf-8", errors="ignore").strip()
-        if not raw:
-            return []
-        return raw.splitlines()
+        # Read for up to ~2 seconds, line by line
+        lines: List[str] = []
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
+            line = self.ser.readline().decode("utf-8", errors="ignore").strip()
+            if line:
+                lines.append(line)
+            else:
+                # If we already have something and there's a short pause, break early
+                if lines:
+                    break
+                time.sleep(0.05)
+
+        return lines
 
     # ------------------------------------------------------------------
     # Uplink + downlink
@@ -113,24 +123,28 @@ class RAK3172Communicator:
         # Do NOT treat missing TX_DONE as a failure (RAK often sends it late).
         success = False
 
-        for line in response_lines:
-            if line.strip() == "OK":
-                success = True
-            if "+EVT:TX_DONE" in line:
-                success = True
+        def _check_lines(lines):
+            for line in lines:
+                if line.strip() == "OK":
+                    return True
+                if "+EVT:TX_DONE" in line:
+                    return True
+            return False
 
-        # If we didn't see success, give the UART one more quick chance
-        # to report back and capture any late OK/TX_DONE.
+        success = _check_lines(response_lines)
+
+        # If we didn't see success, give the UART more time to respond (up to ~3s)
         if not success:
-            time.sleep(0.5)
-            extra = self.ser.read_all().decode("utf-8", errors="ignore").strip()
-            if extra:
-                extra_lines = extra.splitlines()
-                response_lines.extend(extra_lines)
-                for line in extra_lines:
-                    if line.strip() == "OK" or "+EVT:TX_DONE" in line:
+            deadline = time.time() + 3.0
+            while time.time() < deadline:
+                line = self.ser.readline().decode("utf-8", errors="ignore").strip()
+                if line:
+                    response_lines.append(line)
+                    if _check_lines([line]):
                         success = True
                         break
+                else:
+                    time.sleep(0.05)
 
         # Capture downlink if present
         for line in reversed(response_lines):
