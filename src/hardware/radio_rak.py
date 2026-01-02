@@ -265,15 +265,12 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
 
         resp = rak.send_data(payload_hex)
         resp_str = "" if resp is None else str(resp).strip()
-        extra = ""
         try:
-            lines = getattr(rak, "last_response_lines", [])
-            if lines:
-                extra = " | raw=" + " || ".join(lines)
-            else:
-                extra = " | raw=[]"
+            raw_lines = getattr(rak, "last_response_lines", [])
         except Exception:
-            extra = ""
+            raw_lines = []
+
+        extra = " | raw=" + (" || ".join(raw_lines) if raw_lines else "[]")
         log.info(f"[SEND] RAK: {resp_str or 'NO_RESP'}{extra}")
 
         # Failure cases based on responses
@@ -281,22 +278,19 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
             log.error("[SEND] RAK reports no network joined.")
             return False
 
-        try:
-            raw_lines = getattr(rak, "last_response_lines", [])
-        except Exception:
-            raw_lines = []
+        has_tx_done = any("TX_DONE" in l.upper() for l in raw_lines)
+        if has_tx_done:
+            return True
 
-        # Treat any explicit ERROR / AT_PARAM_ERROR as failure
+        # Ignore AT_PARAM_ERROR if TX_DONE is present; otherwise treat other ERROR as failure
         for line in raw_lines:
             l = line.upper()
-            if "ERROR" in l:
+            if "ERROR" in l and "AT_PARAM_ERROR" not in l:
                 log.error(f"[SEND] RAK reported error: {line}")
                 return False
 
-        # Treat OK, OK_NO_RESP, or empty as success
-        if not resp_str:
-            return True
-        if resp_str.startswith("ERROR"):
+        # Treat OK, OK_NO_RESP, or empty as success; only fail on explicit errors above
+        if resp_str and resp_str.upper().startswith("ERROR"):
             return False
         return True
 
