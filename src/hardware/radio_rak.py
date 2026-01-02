@@ -279,18 +279,22 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
             return False
 
         has_tx_done = any("TX_DONE" in l.upper() for l in raw_lines)
-        if has_tx_done:
-            return True
 
-        # Ignore AT_PARAM_ERROR if TX_DONE is present; otherwise treat other ERROR as failure
+        # Treat any ERROR (including AT_PARAM_ERROR) as failure unless TX_DONE is seen and no errors
         for line in raw_lines:
             l = line.upper()
-            if "ERROR" in l and "AT_PARAM_ERROR" not in l:
+            if "ERROR" in l:
                 log.error(f"[SEND] RAK reported error: {line}")
                 return False
 
-        # Treat OK, OK_NO_RESP, or empty as success; only fail on explicit errors above
-        if resp_str and resp_str.upper().startswith("ERROR"):
+        # Success signals
+        if has_tx_done:
+            return True
+        if resp_str and resp_str.upper().startswith("OK"):
+            return True
+        if not resp_str:
+            return False
+        if resp_str.upper().startswith("ERROR"):
             return False
         return True
 
