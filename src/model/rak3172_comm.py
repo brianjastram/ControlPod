@@ -120,9 +120,7 @@ class RAK3172Communicator:
         response_lines = self.send_command(at_command)
 
         # Consider "OK" or "+EVT:TX_DONE" as success.
-        # Do NOT treat missing TX_DONE as a failure (RAK often sends it late).
-        success = False
-
+        # Always read for a short window to capture late TX_DONE even if OK was seen.
         def _check_lines(lines):
             for line in lines:
                 if line.strip() == "OK":
@@ -133,18 +131,16 @@ class RAK3172Communicator:
 
         success = _check_lines(response_lines)
 
-        # If we didn't see success, give the UART more time to respond (up to ~3s)
-        if not success:
-            deadline = time.time() + 3.0
-            while time.time() < deadline:
-                line = self.ser.readline().decode("utf-8", errors="ignore").strip()
-                if line:
-                    response_lines.append(line)
-                    if _check_lines([line]):
-                        success = True
-                        break
-                else:
-                    time.sleep(0.05)
+        # Read for up to ~3s to catch late events
+        deadline = time.time() + 3.0
+        while time.time() < deadline:
+            line = self.ser.readline().decode("utf-8", errors="ignore").strip()
+            if line:
+                response_lines.append(line)
+                if _check_lines([line]):
+                    success = True
+            else:
+                time.sleep(0.05)
 
         # Capture downlink if present
         for line in reversed(response_lines):
@@ -160,8 +156,7 @@ class RAK3172Communicator:
             print(f"[RAK SEND DEBUG] No OK/TX_DONE. Response: {response_lines}")
             if response_lines:
                 return "ERROR:" + "|".join(response_lines)
-            # If truly silent, assume best-effort OK (some firmware revisions do not echo OK)
-            return "OK_NO_RESP"
+            return "ERROR"
 
         return "OK"
 
