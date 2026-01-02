@@ -230,6 +230,7 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
         )
 
         payload_hex = payload.hex()
+        log.debug(f"[SEND] Payload hex ({len(payload_hex)} chars): {payload_hex}")
 
         resp = rak.send_data(payload_hex)
         resp_str = "" if resp is None else str(resp).strip()
@@ -244,11 +245,24 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
             extra = ""
         log.info(f"[SEND] RAK: {resp_str or 'NO_RESP'}{extra}")
 
+        # Failure cases based on responses
         if resp_str and "AT_NO_NETWORK_JOINED" in resp_str:
             log.error("[SEND] RAK reports no network joined.")
             return False
 
-        # Treat OK, OK_NO_RESP, or empty as success; only fail on explicit ERROR
+        try:
+            raw_lines = getattr(rak, "last_response_lines", [])
+        except Exception:
+            raw_lines = []
+
+        # Treat any explicit ERROR / AT_PARAM_ERROR as failure
+        for line in raw_lines:
+            l = line.upper()
+            if "ERROR" in l:
+                log.error(f"[SEND] RAK reported error: {line}")
+                return False
+
+        # Treat OK, OK_NO_RESP, or empty as success
         if not resp_str:
             return True
         if resp_str.startswith("ERROR"):
