@@ -158,6 +158,8 @@ class RAK3172Communicator:
         if not success:
             # Log what we saw for debugging upstream callers
             print(f"[RAK SEND DEBUG] No OK/TX_DONE. Response: {response_lines}")
+            if response_lines:
+                return "ERROR:" + "|".join(response_lines)
             return "ERROR"
 
         return "OK"

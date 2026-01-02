@@ -30,6 +30,21 @@ def _parse_njs_response(lines: list[str]) -> bool:
     return False
 
 
+def _query_join_status(rak: RAK3172Communicator) -> list[str]:
+    """
+    Try multiple join-status commands (RUI3/RUI4 differences).
+    Returns response lines (may be empty or include errors).
+    """
+    cmds = ["AT+NJS=?", "AT+NJS", "AT+NJS?"]
+    for cmd in cmds:
+        try:
+            resp = rak.send_command(cmd)
+            return resp
+        except Exception as e:
+            log.debug(f"[RAK] NJS query failed for {cmd}: {e}")
+    return []
+
+
 def connect(port: Optional[str] = None) -> Optional[RAK3172Communicator]:
     primary = port or getattr(config, "SERIAL_PORT", "/dev/rak")
     candidates = getattr(config, "RAK_PORT_CANDIDATES", [])
@@ -49,7 +64,7 @@ def connect(port: Optional[str] = None) -> Optional[RAK3172Communicator]:
 
             joined = False
             try:
-                status = rak.send_command("AT+NJS")
+                status = _query_join_status(rak)
                 log.info("[RAK] NJS check (connect) -> " + " | ".join(status))
                 if _parse_njs_response(status):
                     joined = True
@@ -107,13 +122,14 @@ def ensure_joined(
     max_join_attempts: int = 2,
     join_cmd: str = "AT+JOIN=1:1:10:5",
 ) -> bool:
-    try:
-        resp = rak.send_command("AT+NJS")
-        log.info(f"[RAK] NJS check -> {' | '.join(resp)}")
-        if _parse_njs_response(resp):
-            return True
-    except Exception as e:
-        log.warning(f"[RAK] NJS check failed: {e}")
+            resp = _query_join_status(rak)
+            log.info(f"[RAK] NJS check -> {' | '.join(resp)}")
+            if _parse_njs_response(resp):
+                return True
+            if resp:
+                log.warning(f"[RAK] Join check did not report joined: {' | '.join(resp)}")
+            else:
+                log.warning("[RAK] NJS check returned no data.")
 
     log.warning("[RAK] Module reports NOT JOINED; attempting re-join...")
 
@@ -127,14 +143,11 @@ def ensure_joined(
 
         time.sleep(10)
 
-        try:
-            resp2 = rak.send_command("AT+NJS")
-            log.info(f"[RAK] NJS after JOIN attempt {attempt} -> {' | '.join(resp2)}")
-            if _parse_njs_response(resp2):
-                log.info("[RAK] Re-join succeeded according to AT+NJS.")
-                return True
-        except Exception as e:
-            log.warning(f"[RAK] NJS re-check failed after JOIN attempt {attempt}: {e}")
+        resp2 = _query_join_status(rak)
+        log.info(f"[RAK] NJS after JOIN attempt {attempt} -> {' | '.join(resp2)}")
+        if _parse_njs_response(resp2):
+            log.info("[RAK] Re-join succeeded according to NJS query.")
+            return True
 
     log.error("[RAK] Re-join failed after max attempts.")
     return False
