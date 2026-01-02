@@ -160,7 +160,8 @@ class RAK3172Communicator:
             print(f"[RAK SEND DEBUG] No OK/TX_DONE. Response: {response_lines}")
             if response_lines:
                 return "ERROR:" + "|".join(response_lines)
-            return "ERROR"
+            # If truly silent, assume best-effort OK (some firmware revisions do not echo OK)
+            return "OK_NO_RESP"
 
         return "OK"
 
