@@ -119,6 +119,19 @@ class RAK3172Communicator:
             if "+EVT:TX_DONE" in line:
                 success = True
 
+        # If we didn't see success, give the UART one more quick chance
+        # to report back and capture any late OK/TX_DONE.
+        if not success:
+            time.sleep(0.5)
+            extra = self.ser.read_all().decode("utf-8", errors="ignore").strip()
+            if extra:
+                extra_lines = extra.splitlines()
+                response_lines.extend(extra_lines)
+                for line in extra_lines:
+                    if line.strip() == "OK" or "+EVT:TX_DONE" in line:
+                        success = True
+                        break
+
         # Capture downlink if present
         for line in reversed(response_lines):
             if "+EVT:RX_1" in line and ":" in line:
@@ -129,6 +142,8 @@ class RAK3172Communicator:
                     break
 
         if not success:
+            # Log what we saw for debugging upstream callers
+            print(f"[RAK SEND DEBUG] No OK/TX_DONE. Response: {response_lines}")
             return "ERROR"
 
         return "OK"
