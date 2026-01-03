@@ -14,6 +14,8 @@ log = logging.getLogger(__name__)
 
 _NJS_CHECK_INTERVAL = 10
 _njs_send_counter = 0
+_health_send_counter = 0
+_health_fail_counter = 0
 
 
 def _parse_njs_response(lines: list[str]) -> bool:
@@ -21,8 +23,13 @@ def _parse_njs_response(lines: list[str]) -> bool:
         s = line.strip()
         if not s:
             continue
-        if "get the join status" in s:
+        s_upper = s.upper()
+        if "AT_NO_NETWORK_JOINED" in s_upper:
             continue
+        if "GET THE JOIN STATUS" in s_upper:
+            continue
+        if "EVT:JOINED" in s_upper or "NETWORK JOINED" in s_upper:
+            return True
         if "NJS" in s and "1" in s:
             return True
         if s == "1":
@@ -42,6 +49,9 @@ def _interpret_njs(lines: list[str]) -> tuple[bool, bool]:
             continue
         if "AT_NO_NETWORK_JOINED" in s:
             not_joined = True
+            continue
+        if "EVT:JOINED" in s or "NETWORK JOINED" in s:
+            joined = True
         if "NJS" in s:
             if "1" in s:
                 joined = True
@@ -133,6 +143,18 @@ def _ensure_radio_config(rak: RAK3172Communicator, *, force: bool = False) -> No
                 log.info(f"[RAK] Set {key}={desired_value} (was {current})")
         except Exception as e:
             log.warning(f"[RAK] {key}={desired_value} apply warning: {e}")
+
+
+def _health_check(rak: RAK3172Communicator) -> bool:
+    try:
+        resp = rak.send_command("AT")
+    except Exception as e:
+        log.warning(f"[RAK] Health check AT failed: {e}")
+        return False
+    ok = any(line.strip().upper() == "OK" for line in resp)
+    if not ok:
+        log.warning(f"[RAK] Health check AT returned no OK: {' | '.join(resp)}")
+    return ok
 
 
 def connect(port: Optional[str] = None) -> Optional[RAK3172Communicator]:
@@ -257,7 +279,7 @@ def ensure_joined(
 
 
 def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
-    global _njs_send_counter
+    global _njs_send_counter, _health_send_counter, _health_fail_counter
 
     if rak is None:
         log.debug("[SEND] No RAK instance; skipping uplink.")
@@ -272,6 +294,29 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
             if not ensure_joined(rak):
                 log.warning("[SEND] RAK not joined; skipping uplink this interval.")
                 return False
+        interval = int(getattr(config, "RAK_HEALTHCHECK_EVERY_SENDS", 0))
+        if interval > 0:
+            _health_send_counter += 1
+            if _health_send_counter >= interval:
+                _health_send_counter = 0
+                if _health_check(rak):
+                    _health_fail_counter = 0
+                else:
+                    _health_fail_counter += 1
+                    max_fails = int(
+                        getattr(config, "RAK_HEALTHCHECK_FAILS_BEFORE_RESET", 2)
+                    )
+                    log.warning(
+                        "[RAK] Health check failed (%d/%d).",
+                        _health_fail_counter,
+                        max_fails,
+                    )
+                    if _health_fail_counter >= max_fails:
+                        log.error(
+                            "[RAK] Health check failed too many times; "
+                            "requesting reconnect."
+                        )
+                        return False
         if getattr(config, "LORA_ENFORCE_EVERY_SEND", False):
             try:
                 _ensure_radio_config(rak, force=True)
@@ -388,9 +433,11 @@ def send_data_to_chirpstack(rak: RAK3172Communicator, telemetry: dict) -> bool:
 
 
 def reconnect_rak(rak: RAK3172Communicator) -> Optional[RAK3172Communicator]:
-    global _njs_send_counter
+    global _njs_send_counter, _health_send_counter, _health_fail_counter
     log.info("[RAK] Attempting RAK reconnect...")
     _njs_send_counter = 0
+    _health_send_counter = 0
+    _health_fail_counter = 0
     return connect()
 
 

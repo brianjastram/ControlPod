@@ -24,6 +24,8 @@ LORA_DR = 3   # US915 DR3 (SF7/125k) fits 14-byte payload
 LORA_ADR = 0  # Disable ADR to keep DR stable
 LORA_CFM = 0  # Unconfirmed uplinks
 LORA_ENFORCE_EVERY_SEND = True  # Re-apply ADR/DR/CFM before each uplink
+RAK_HEALTHCHECK_EVERY_SENDS = 10  # Send "AT" every N uplinks to detect UART issues
+RAK_HEALTHCHECK_FAILS_BEFORE_RESET = 2  # Consecutive failed checks before reconnect
 
 # Retry limits
 MAX_RETRIES = 5
@@ -65,6 +67,8 @@ __all__ = [
     "LORA_ADR",
     "LORA_CFM",
     "LORA_ENFORCE_EVERY_SEND",
+    "RAK_HEALTHCHECK_EVERY_SENDS",
+    "RAK_HEALTHCHECK_FAILS_BEFORE_RESET",
     "MAX_RETRIES",
     "SERIAL_PORT",
     "RELAY_PORT",
