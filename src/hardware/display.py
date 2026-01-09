@@ -92,24 +92,17 @@ class ConsoleDisplay:
         ts = now.strftime("%Y-%m-%d %H:%M:%S %Z").strip()
 
         lines = [
-            "Site:",
-            f"{status.site_name}",
+            f"Site: {status.site_name}",
             "Time:",
             f"{ts}",
-            "Depth:",
-            f"{depth_in:.1f} in",
+            f"Depth: {depth_in:.1f} in",
             "Pump:",
             f"{'ON' if status.pump_on else 'OFF'}",
-            "Alarm:",
-            f"{'ON' if status.alarm_on else 'OFF'}",
-            "Start:",
-            f"{start_in:.1f} in",
-            "Stop:",
-            f"{stop_in:.1f} in",
-            "Hi alarm:",
-            f"{hi_alarm_in:.1f} in",
-            "Override:",
-            f"{'ON' if status.override else 'OFF'}",
+            f"Alarm: {'ON' if status.alarm_on else 'OFF'}",
+            f"Start: {start_in:.1f} in",
+            f"Stop: {stop_in:.1f} in",
+            f"Hi alarm: {hi_alarm_in:.1f} in",
+            f"Override: {'ON' if status.override else 'OFF'}",
         ]
 
         # Clear screen and home cursor.
@@ -294,11 +287,16 @@ class FramebufferDisplay:
 
         lines = [
             f"Site: {status.site_name}",
-            f"Time: {ts}",
+            "Time:",
+            f"{ts}",
             f"Depth: {depth_in:.1f} in",
-            f"Pump: {'ON' if status.pump_on else 'OFF'}  Alarm: {'ON' if status.alarm_on else 'OFF'}",
-            f"Start: {start_in:.1f} in  Stop: {stop_in:.1f} in",
-            f"Hi alarm: {hi_alarm_in:.1f} in  Override: {'ON' if status.override else 'OFF'}",
+            "Pump:",
+            f"{'ON' if status.pump_on else 'OFF'}",
+            f"Alarm: {'ON' if status.alarm_on else 'OFF'}",
+            f"Start: {start_in:.1f} in",
+            f"Stop: {stop_in:.1f} in",
+            f"Hi alarm: {hi_alarm_in:.1f} in",
+            f"Override: {'ON' if status.override else 'OFF'}",
         ]
 
         image = Image.new("RGB", self._size, self.background)
