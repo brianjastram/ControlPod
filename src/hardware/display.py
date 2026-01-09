@@ -93,11 +93,20 @@ class ConsoleDisplay:
 
         lines = [
             f"Site: {status.site_name}",
-            f"Time: {ts}",
-            f"Depth: {depth_in:.1f} in",
-            f"Pump: {'ON' if status.pump_on else 'OFF'}  Alarm: {'ON' if status.alarm_on else 'OFF'}",
-            f"Start: {start_in:.1f} in  Stop: {stop_in:.1f} in",
-            f"Hi alarm: {hi_alarm_in:.1f} in  Override: {'ON' if status.override else 'OFF'}",
+            "Time:",
+            f"{ts}",
+            f"Depth:" {depth_in:.1f} in",
+            f"Pump:" {'ON' if status.pump_on else 'OFF'}",
+            "Alarm:",
+            f"{'ON' if status.alarm_on else 'OFF'}",
+            "Start:",
+            f"{start_in:.1f} in",
+            "Stop:",
+            f"{stop_in:.1f} in",
+            "Hi alarm:",
+            f"{hi_alarm_in:.1f} in",
+            "Override:",
+            f"{'ON' if status.override else 'OFF'}",
         ]
 
         # Clear screen and home cursor.
