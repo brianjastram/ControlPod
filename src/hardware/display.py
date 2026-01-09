@@ -92,11 +92,14 @@ class ConsoleDisplay:
         ts = now.strftime("%Y-%m-%d %H:%M:%S %Z").strip()
 
         lines = [
-            f"Site: {status.site_name}",
+            "Site:",
+            f"{status.site_name}",
             "Time:",
             f"{ts}",
-            f"Depth:" {depth_in:.1f} in",
-            f"Pump:" {'ON' if status.pump_on else 'OFF'}",
+            "Depth:",
+            f"{depth_in:.1f} in",
+            "Pump:",
+            f"{'ON' if status.pump_on else 'OFF'}",
             "Alarm:",
             f"{'ON' if status.alarm_on else 'OFF'}",
             "Start:",
