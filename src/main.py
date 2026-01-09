@@ -70,6 +70,8 @@ def main() -> None:
     display = display_hw.build_display(
         getattr(config, "DISPLAY_DRIVER", "none"),
         tty=getattr(config, "DISPLAY_TTY", "/dev/tty1"),
+        timezone_name=getattr(config, "DISPLAY_TIMEZONE", "UTC"),
+        font=getattr(config, "DISPLAY_FONT", None),
     )
 
     # ----------------- Depth sensor setup -----------------

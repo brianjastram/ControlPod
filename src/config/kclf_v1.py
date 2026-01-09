@@ -31,6 +31,8 @@ RAK_HEALTHCHECK_FAILS_BEFORE_RESET = 2  # Consecutive failed checks before recon
 DISPLAY_DRIVER = "none"  # "console" to render to /dev/tty1
 DISPLAY_TTY = "/dev/tty1"
 DISPLAY_UPDATE_SECONDS = 1
+DISPLAY_TIMEZONE = "UTC"
+DISPLAY_FONT = ""
 
 # Retry limits
 MAX_RETRIES = 5
@@ -77,6 +79,8 @@ __all__ = [
     "DISPLAY_DRIVER",
     "DISPLAY_TTY",
     "DISPLAY_UPDATE_SECONDS",
+    "DISPLAY_TIMEZONE",
+    "DISPLAY_FONT",
     "MAX_RETRIES",
     "SERIAL_PORT",
     "RELAY_PORT",

@@ -16,6 +16,8 @@ RADIO_DRIVER = "rak3172"
 DISPLAY_DRIVER = "console"
 DISPLAY_TTY = "/dev/tty1"
 DISPLAY_UPDATE_SECONDS = 1
+DISPLAY_TIMEZONE = "America/Chicago"
+DISPLAY_FONT = "Lat15-TerminusBold24x12"
 
 # RS485 / Waveshare AI485 settings
 AI485_PORT = "/dev/ttyUSB1"     # Primary USB-to-RS485 adapter port
