@@ -124,6 +124,7 @@ class FramebufferDisplay:
         background: str = "#000000",
         padding: int = 10,
         line_spacing: int = 4,
+        pixel_order: str = "RGB",
     ) -> None:
         if Image is None:
             raise RuntimeError("Pillow not available for framebuffer display.")
@@ -134,10 +135,12 @@ class FramebufferDisplay:
         self.background = background
         self.padding = padding
         self.line_spacing = line_spacing
+        self.pixel_order = pixel_order.upper()
         self._tz = None
         self._fb = None
         self._size = (480, 320)
         self._bpp = 32
+        self._stride = None
         self._pixel_mode = "BGRX"
 
         if ZoneInfo:
@@ -167,11 +170,25 @@ class FramebufferDisplay:
             log.warning(f"[DISPLAY] FB info read failed; using defaults: {e}")
 
         if self._bpp == 16:
-            self._pixel_mode = "BGR;16"
+            self._pixel_mode = "RGB"
         elif self._bpp == 24:
-            self._pixel_mode = "BGR"
+            self._pixel_mode = "BGR" if self.pixel_order == "BGR" else "RGB"
         else:
-            self._pixel_mode = "BGRX"
+            self._pixel_mode = "BGRX" if self.pixel_order == "BGR" else "RGBX"
+
+        bytes_per_pixel = max(1, self._bpp // 8)
+        self._stride = self._size[0] * bytes_per_pixel
+        for path in ("/sys/class/graphics/fb0/stride", "/sys/class/graphics/fb0/line_length"):
+            if not os.path.exists(path):
+                continue
+            try:
+                with open(path, "r") as fp:
+                    val = int(fp.read().strip())
+                if val > 0:
+                    self._stride = val
+                break
+            except Exception as e:
+                log.warning(f"[DISPLAY] FB stride read failed: {e}")
 
     def _open_fb(self) -> None:
         try:
@@ -203,10 +220,56 @@ class FramebufferDisplay:
             return
         try:
             self._fb.seek(0)
-            raw = image.tobytes("raw", self._pixel_mode)
-            self._fb.write(raw)
+            if self._bpp == 16:
+                self._fb.write(self._pack_rgb565(image))
+            else:
+                raw = image.tobytes("raw", self._pixel_mode)
+                if self._stride and self._stride != self._size[0] * (self._bpp // 8):
+                    raw = self._pad_stride(raw, self._bpp // 8)
+                self._fb.write(raw)
         except Exception as e:
             log.error(f"[DISPLAY] FB write failed: {e}")
+
+    def _pack_rgb565(self, image: "Image.Image") -> bytes:
+        width, height = self._size
+        rgb = image.tobytes("raw", "RGB")
+        out = bytearray(self._stride * height)
+        out_idx = 0
+        rgb_idx = 0
+        pad = self._stride - (width * 2)
+        swap = self.pixel_order == "BGR"
+
+        for _ in range(height):
+            for _ in range(width):
+                r = rgb[rgb_idx]
+                g = rgb[rgb_idx + 1]
+                b = rgb[rgb_idx + 2]
+                rgb_idx += 3
+                if swap:
+                    r, b = b, r
+                value = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+                out[out_idx] = value & 0xFF
+                out[out_idx + 1] = (value >> 8) & 0xFF
+                out_idx += 2
+            if pad > 0:
+                out_idx += pad
+
+        return bytes(out)
+
+    def _pad_stride(self, raw: bytes, bytes_per_pixel: int) -> bytes:
+        width, height = self._size
+        row_len = width * bytes_per_pixel
+        out = bytearray(self._stride * height)
+        out_idx = 0
+        raw_idx = 0
+        pad = self._stride - row_len
+        for _ in range(height):
+            out[out_idx:out_idx + row_len] = raw[raw_idx:raw_idx + row_len]
+            out_idx += row_len
+            raw_idx += row_len
+            if pad > 0:
+                out_idx += pad
+        return bytes(out)
 
     def update(self, status: DisplayStatus) -> None:
         depth_in = _ft_to_in(status.depth_ft)
@@ -259,6 +322,7 @@ def build_display(
     background: str = "#000000",
     padding: int = 10,
     line_spacing: int = 4,
+    pixel_order: str = "RGB",
 ):
     if not driver or driver == "none":
         return NullDisplay()
@@ -285,6 +349,7 @@ def build_display(
             background=background,
             padding=padding,
             line_spacing=line_spacing,
+            pixel_order=pixel_order,
         )
     raise ValueError(f"Unknown display driver: {driver}")
     def _apply_font(self, font: str) -> None:

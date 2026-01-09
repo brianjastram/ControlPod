@@ -79,6 +79,7 @@ def main() -> None:
         background=getattr(config, "DISPLAY_BACKGROUND", "#000000"),
         padding=int(getattr(config, "DISPLAY_PADDING", 10)),
         line_spacing=int(getattr(config, "DISPLAY_LINE_SPACING", 4)),
+        pixel_order=getattr(config, "DISPLAY_FB_PIXEL_ORDER", "RGB"),
     )
 
     # ----------------- Depth sensor setup -----------------
