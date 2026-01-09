@@ -28,6 +28,7 @@ from src.control import is_override_active
 from src.hardware import depth_sensor as depth_hw
 from src.hardware import pump_control
 from src.hardware import radio_rak as rak_service
+from src.hardware import display as display_hw
 from src.model.rak_dummy import DummyRAK
 
 logger.setupLogging()
@@ -40,13 +41,14 @@ log = logging.getLogger(__name__)
 depth_sensor = None
 pump = None
 rak = None
+display = None
 
 # ---------------------------------------------------------------------------
 # MAIN CONTROL LOOP
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    global rak, depth_sensor, pump
+    global rak, depth_sensor, pump, display
     print(f"Starting ControlPod ({config.MODE}) ...")
 
     depth_sensor = depth_hw.build_depth_sensor(config.DEPTH_SENSOR_IMPL)
@@ -64,6 +66,11 @@ def main() -> None:
         rak = rak_service.connect()
         if rak is None:
             rak = DummyRAK()
+
+    display = display_hw.build_display(
+        getattr(config, "DISPLAY_DRIVER", "none"),
+        tty=getattr(config, "DISPLAY_TTY", "/dev/tty1"),
+    )
 
     # ----------------- Depth sensor setup -----------------
     depth_ready = depth_sensor.setup()
@@ -113,6 +120,7 @@ def main() -> None:
     # --------- Telemetry timer ----------
     last_send_time = time.time()
     depth_warning_logged = False
+    last_display_time = 0.0
 
     # =====================================================
     # MAIN LOOP
@@ -220,6 +228,28 @@ def main() -> None:
 
         alarm_hi_on = hi_alarm_tripped
         alarm_lo_on = lo_alarm_tripped
+
+        # ---------- Display update ----------
+        display_interval = float(getattr(config, "DISPLAY_UPDATE_SECONDS", 1))
+        if display_interval <= 0:
+            display_interval = 1
+        if time.time() - last_display_time >= display_interval:
+            try:
+                display.update(
+                    display_hw.DisplayStatus(
+                        site_name=site_name,
+                        depth_ft=depth,
+                        pump_on=pump_is_on,
+                        alarm_on=alarm_hi_on or alarm_lo_on,
+                        stop_ft=stop_depth,
+                        start_ft=start_depth,
+                        hi_alarm_ft=hi_alarm,
+                        override=is_override_active(),
+                    )
+                )
+            except Exception as e:
+                log.error(f"[DISPLAY] Update failed: {e}")
+            last_display_time = time.time()
 
         # ---------- Telemetry send ----------
         if time.time() - last_send_time >= config.INTERVAL_MINUTES * 60:

@@ -12,6 +12,11 @@ PUMP_DRIVER = "numato_serial"
 ALARM_DRIVER = "gpio"
 RADIO_DRIVER = "rak3172"
 
+# Display (HDMI console)
+DISPLAY_DRIVER = "console"
+DISPLAY_TTY = "/dev/tty1"
+DISPLAY_UPDATE_SECONDS = 1
+
 # RS485 / Waveshare AI485 settings
 AI485_PORT = "/dev/ttyUSB1"     # Primary USB-to-RS485 adapter port
 AI485_PORT_CANDIDATES = ["/dev/ttyUSB1", "/dev/ttyUSB2", "/dev/ttyUSB3"]

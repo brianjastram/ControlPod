@@ -27,6 +27,11 @@ LORA_ENFORCE_EVERY_SEND = True  # Re-apply ADR/DR/CFM before each uplink
 RAK_HEALTHCHECK_EVERY_SENDS = 10  # Send "AT" every N uplinks to detect UART issues
 RAK_HEALTHCHECK_FAILS_BEFORE_RESET = 2  # Consecutive failed checks before reconnect
 
+# Display (HDMI console)
+DISPLAY_DRIVER = "none"  # "console" to render to /dev/tty1
+DISPLAY_TTY = "/dev/tty1"
+DISPLAY_UPDATE_SECONDS = 1
+
 # Retry limits
 MAX_RETRIES = 5
 
@@ -69,6 +74,9 @@ __all__ = [
     "LORA_ENFORCE_EVERY_SEND",
     "RAK_HEALTHCHECK_EVERY_SENDS",
     "RAK_HEALTHCHECK_FAILS_BEFORE_RESET",
+    "DISPLAY_DRIVER",
+    "DISPLAY_TTY",
+    "DISPLAY_UPDATE_SECONDS",
     "MAX_RETRIES",
     "SERIAL_PORT",
     "RELAY_PORT",
