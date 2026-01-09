@@ -72,6 +72,13 @@ def main() -> None:
         tty=getattr(config, "DISPLAY_TTY", "/dev/tty1"),
         timezone_name=getattr(config, "DISPLAY_TIMEZONE", "UTC"),
         font=getattr(config, "DISPLAY_FONT", None),
+        fb_path=getattr(config, "DISPLAY_FB", "/dev/fb0"),
+        font_path=getattr(config, "DISPLAY_FONT_PATH", None),
+        font_size=int(getattr(config, "DISPLAY_FONT_SIZE", 36)),
+        foreground=getattr(config, "DISPLAY_FOREGROUND", "#FFFFFF"),
+        background=getattr(config, "DISPLAY_BACKGROUND", "#000000"),
+        padding=int(getattr(config, "DISPLAY_PADDING", 10)),
+        line_spacing=int(getattr(config, "DISPLAY_LINE_SPACING", 4)),
     )
 
     # ----------------- Depth sensor setup -----------------

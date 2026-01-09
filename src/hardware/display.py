@@ -7,12 +7,19 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+import os
 from typing import Optional
 
 try:
     from zoneinfo import ZoneInfo  # Python 3.9+
 except Exception:  # pragma: no cover - best-effort timezone support
     ZoneInfo = None
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except Exception:  # pragma: no cover - optional dependency
+    Image = None
+    ImageDraw = None
+    ImageFont = None
 
 log = logging.getLogger(__name__)
 
@@ -106,11 +113,152 @@ class ConsoleDisplay:
             self._fp = None
 
 
+class FramebufferDisplay:
+    def __init__(
+        self,
+        fb_path: str = "/dev/fb0",
+        timezone_name: str = "UTC",
+        font_path: Optional[str] = None,
+        font_size: int = 36,
+        foreground: str = "#FFFFFF",
+        background: str = "#000000",
+        padding: int = 10,
+        line_spacing: int = 4,
+    ) -> None:
+        if Image is None:
+            raise RuntimeError("Pillow not available for framebuffer display.")
+
+        self.fb_path = fb_path
+        self.timezone_name = timezone_name
+        self.foreground = foreground
+        self.background = background
+        self.padding = padding
+        self.line_spacing = line_spacing
+        self._tz = None
+        self._fb = None
+        self._size = (480, 320)
+        self._bpp = 32
+        self._pixel_mode = "BGRX"
+
+        if ZoneInfo:
+            try:
+                self._tz = ZoneInfo(timezone_name)
+            except Exception as e:
+                log.warning(f"[DISPLAY] Failed to load timezone {timezone_name}: {e}")
+
+        self._load_fb_info()
+        self._open_fb()
+        self._load_font(font_path, font_size)
+
+    def _load_fb_info(self) -> None:
+        try:
+            with open("/sys/class/graphics/fb0/virtual_size", "r") as fp:
+                width_s, height_s = fp.read().strip().split(",")
+            with open("/sys/class/graphics/fb0/bits_per_pixel", "r") as fp:
+                bpp_s = fp.read().strip()
+            width = int(width_s)
+            height = int(height_s)
+            bpp = int(bpp_s)
+            if width > 0 and height > 0:
+                self._size = (width, height)
+            if bpp in (16, 24, 32):
+                self._bpp = bpp
+        except Exception as e:
+            log.warning(f"[DISPLAY] FB info read failed; using defaults: {e}")
+
+        if self._bpp == 16:
+            self._pixel_mode = "BGR;16"
+        elif self._bpp == 24:
+            self._pixel_mode = "BGR"
+        else:
+            self._pixel_mode = "BGRX"
+
+    def _open_fb(self) -> None:
+        try:
+            self._fb = open(self.fb_path, "r+b", buffering=0)
+        except Exception as e:
+            raise RuntimeError(f"Failed to open {self.fb_path}: {e}") from e
+
+    def _load_font(self, font_path: Optional[str], font_size: int) -> None:
+        if font_path:
+            try:
+                self._font = ImageFont.truetype(font_path, font_size)
+                return
+            except Exception as e:
+                log.warning(f"[DISPLAY] Font load failed ({font_path}): {e}")
+        self._font = ImageFont.load_default()
+
+    def _line_height(self) -> int:
+        try:
+            bbox = self._font.getbbox("Ag")
+            return max(1, bbox[3] - bbox[1])
+        except Exception:
+            try:
+                return self._font.getsize("Ag")[1]
+            except Exception:
+                return 12
+
+    def _blit(self, image: "Image.Image") -> None:
+        if not self._fb:
+            return
+        try:
+            self._fb.seek(0)
+            raw = image.tobytes("raw", self._pixel_mode)
+            self._fb.write(raw)
+        except Exception as e:
+            log.error(f"[DISPLAY] FB write failed: {e}")
+
+    def update(self, status: DisplayStatus) -> None:
+        depth_in = _ft_to_in(status.depth_ft)
+        start_in = _ft_to_in(status.start_ft)
+        stop_in = _ft_to_in(status.stop_ft)
+        hi_alarm_in = _ft_to_in(status.hi_alarm_ft)
+
+        now = datetime.now(self._tz) if self._tz else datetime.now()
+        ts = now.strftime("%Y-%m-%d %H:%M:%S %Z").strip()
+
+        lines = [
+            f"Site: {status.site_name}",
+            f"Time: {ts}",
+            f"Depth: {depth_in:.1f} in",
+            f"Pump: {'ON' if status.pump_on else 'OFF'}  Alarm: {'ON' if status.alarm_on else 'OFF'}",
+            f"Start: {start_in:.1f} in  Stop: {stop_in:.1f} in",
+            f"Hi alarm: {hi_alarm_in:.1f} in  Override: {'ON' if status.override else 'OFF'}",
+        ]
+
+        image = Image.new("RGB", self._size, self.background)
+        draw = ImageDraw.Draw(image)
+        y = self.padding
+        line_height = self._line_height()
+        for line in lines:
+            draw.text((self.padding, y), line, font=self._font, fill=self.foreground)
+            y += line_height + self.line_spacing
+            if y >= self._size[1]:
+                break
+
+        self._blit(image)
+
+    def close(self) -> None:
+        if self._fb:
+            try:
+                self._fb.close()
+            except Exception:
+                pass
+            self._fb = None
+
+
 def build_display(
     driver: str,
     tty: Optional[str] = None,
     timezone_name: str = "UTC",
     font: Optional[str] = None,
+    fb_path: Optional[str] = None,
+    font_path: Optional[str] = None,
+    font_size: int = 36,
+    foreground: str = "#FFFFFF",
+    background: str = "#000000",
+    padding: int = 10,
+    line_spacing: int = 4,
 ):
     if not driver or driver == "none":
         return NullDisplay()
@@ -119,6 +267,24 @@ def build_display(
             tty=tty or "/dev/tty1",
             timezone_name=timezone_name,
             font=font,
+        )
+    if driver in ("framebuffer", "fb"):
+        if Image is None:
+            log.warning("[DISPLAY] Pillow not available; falling back to console display.")
+            return ConsoleDisplay(
+                tty=tty or "/dev/tty1",
+                timezone_name=timezone_name,
+                font=font,
+            )
+        return FramebufferDisplay(
+            fb_path=fb_path or "/dev/fb0",
+            timezone_name=timezone_name,
+            font_path=font_path,
+            font_size=font_size,
+            foreground=foreground,
+            background=background,
+            padding=padding,
+            line_spacing=line_spacing,
         )
     raise ValueError(f"Unknown display driver: {driver}")
     def _apply_font(self, font: str) -> None:

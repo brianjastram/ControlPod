@@ -13,11 +13,18 @@ ALARM_DRIVER = "gpio"
 RADIO_DRIVER = "rak3172"
 
 # Display (HDMI console)
-DISPLAY_DRIVER = "console"
+DISPLAY_DRIVER = "framebuffer"
 DISPLAY_TTY = "/dev/tty1"
 DISPLAY_UPDATE_SECONDS = 1
 DISPLAY_TIMEZONE = "America/Chicago"
 DISPLAY_FONT = "Lat15-TerminusBold24x12"
+DISPLAY_FB = "/dev/fb0"
+DISPLAY_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+DISPLAY_FONT_SIZE = 40
+DISPLAY_FOREGROUND = "#FFFFFF"
+DISPLAY_BACKGROUND = "#000000"
+DISPLAY_PADDING = 12
+DISPLAY_LINE_SPACING = 6
 
 # RS485 / Waveshare AI485 settings
 AI485_PORT = "/dev/ttyUSB1"     # Primary USB-to-RS485 adapter port
