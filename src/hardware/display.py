@@ -37,6 +37,7 @@ class DisplayStatus:
     stop_ft: float
     start_ft: float
     hi_alarm_ft: float
+    lo_alarm_ft: float
     override: bool
 
 
@@ -87,6 +88,7 @@ class ConsoleDisplay:
         start_in = _ft_to_in(status.start_ft)
         stop_in = _ft_to_in(status.stop_ft)
         hi_alarm_in = _ft_to_in(status.hi_alarm_ft)
+        lo_alarm_in = _ft_to_in(status.lo_alarm_ft)
 
         now = datetime.now(self._tz) if self._tz else datetime.now()
         date_str = now.strftime("%Y-%m-%d").strip()
@@ -102,7 +104,8 @@ class ConsoleDisplay:
             f"Alarm: {'ON' if status.alarm_on else 'OFF'}",
             f"Start: {start_in:.1f} in",
             f"Stop: {stop_in:.1f} in",
-            f"High Alm: {hi_alarm_in:.1f} in",
+            f"Hi Alm: {hi_alarm_in:.1f} in",
+            f"Lo Alm: {lo_alarm_in:.1f} in",
             f"Override: {'ON' if status.override else 'OFF'}",
         ]
 
@@ -282,6 +285,7 @@ class FramebufferDisplay:
         start_in = _ft_to_in(status.start_ft)
         stop_in = _ft_to_in(status.stop_ft)
         hi_alarm_in = _ft_to_in(status.hi_alarm_ft)
+        lo_alarm_in = _ft_to_in(status.lo_alarm_ft)
 
         now = datetime.now(self._tz) if self._tz else datetime.now()
         date_str = now.strftime("%Y-%m-%d").strip()
@@ -297,7 +301,8 @@ class FramebufferDisplay:
             f"Alarm: {'ON' if status.alarm_on else 'OFF'}",
             f"Start: {start_in:.1f} in",
             f"Stop: {stop_in:.1f} in",
-            f"High Alm: {hi_alarm_in:.1f} in",
+            f"Hi Alm: {hi_alarm_in:.1f} in",
+            f"Lo Alm: {lo_alarm_in:.1f} in",
             f"Override: {'ON' if status.override else 'OFF'}",
         ]
 

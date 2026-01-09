@@ -254,6 +254,7 @@ def main() -> None:
                         stop_ft=stop_depth,
                         start_ft=start_depth,
                         hi_alarm_ft=hi_alarm,
+                        lo_alarm_ft=lo_alarm,
                         override=is_override_active(),
                     )
                 )
