@@ -94,7 +94,8 @@ class ConsoleDisplay:
 
         lines = [
             f"Site: {status.site_name}",
-            f"DateTime: {date_str}",
+            "DateTime:",
+            f"{date_str}",
             f"{time_str}",
             f"Depth: {depth_in:.1f} in",
             f"Pump: {'ON' if status.pump_on else 'OFF'}",
@@ -288,7 +289,8 @@ class FramebufferDisplay:
 
         lines = [
             f"Site: {status.site_name}",
-            f"DateTime: {date_str}",
+            "DateTime:",
+            f"{date_str}",
             f"{time_str}",
             f"Depth: {depth_in:.1f} in",
             f"Pump: {'ON' if status.pump_on else 'OFF'}",
