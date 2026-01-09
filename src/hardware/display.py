@@ -89,19 +89,19 @@ class ConsoleDisplay:
         hi_alarm_in = _ft_to_in(status.hi_alarm_ft)
 
         now = datetime.now(self._tz) if self._tz else datetime.now()
-        ts = now.strftime("%Y-%m-%d %H:%M:%S %Z").strip()
+        date_str = now.strftime("%Y-%m-%d").strip()
+        time_str = now.strftime("%H:%M:%S %Z").strip()
 
         lines = [
             f"Site: {status.site_name}",
-            "Time:",
-            f"{ts}",
+            f"DateTime: {date_str}",
+            f"{time_str}",
             f"Depth: {depth_in:.1f} in",
-            "Pump:",
-            f"{'ON' if status.pump_on else 'OFF'}",
+            f"Pump: {'ON' if status.pump_on else 'OFF'}",
             f"Alarm: {'ON' if status.alarm_on else 'OFF'}",
             f"Start: {start_in:.1f} in",
             f"Stop: {stop_in:.1f} in",
-            f"Hi alarm: {hi_alarm_in:.1f} in",
+            f"High Alm: {hi_alarm_in:.1f} in",
             f"Override: {'ON' if status.override else 'OFF'}",
         ]
 
@@ -283,19 +283,19 @@ class FramebufferDisplay:
         hi_alarm_in = _ft_to_in(status.hi_alarm_ft)
 
         now = datetime.now(self._tz) if self._tz else datetime.now()
-        ts = now.strftime("%Y-%m-%d %H:%M:%S %Z").strip()
+        date_str = now.strftime("%Y-%m-%d").strip()
+        time_str = now.strftime("%H:%M:%S %Z").strip()
 
         lines = [
             f"Site: {status.site_name}",
-            "Time:",
-            f"{ts}",
+            f"DateTime: {date_str}",
+            f"{time_str}",
             f"Depth: {depth_in:.1f} in",
-            "Pump:",
-            f"{'ON' if status.pump_on else 'OFF'}",
+            f"Pump: {'ON' if status.pump_on else 'OFF'}",
             f"Alarm: {'ON' if status.alarm_on else 'OFF'}",
             f"Start: {start_in:.1f} in",
             f"Stop: {stop_in:.1f} in",
-            f"Hi alarm: {hi_alarm_in:.1f} in",
+            f"High Alm: {hi_alarm_in:.1f} in",
             f"Override: {'ON' if status.override else 'OFF'}",
         ]
 
