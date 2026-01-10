@@ -95,7 +95,7 @@ class ConsoleDisplay:
         time_str = now.strftime("%H:%M:%S %Z").strip()
 
         lines = [
-            f"Site: {status.site_name}",
+            f"Phase: {status.site_name}",
             "DateTime:",
             f"{date_str}",
             f"{time_str}",
@@ -292,7 +292,7 @@ class FramebufferDisplay:
         time_str = now.strftime("%H:%M:%S %Z").strip()
 
         lines = [
-            f"Site: {status.site_name}",
+            f"Phase: {status.site_name}",
             "DateTime:",
             f"{date_str}",
             f"{time_str}",
