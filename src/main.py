@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 
 from src import shared_state
 from src import logger
+from src import config as config
 from src.config import (
     DEVICE_NAME,
     INTERVAL_MINUTES,
@@ -37,6 +38,7 @@ from src.downlink import process_downlink_command
 from src.control import is_override_active
 from src import rak as rak_service
 from src import relay
+from src.hardware import display as display_hw
 from src.model.rak_dummy import DummyRAK
 
 import busio
@@ -87,6 +89,26 @@ def main() -> None:
         shared_state.analog_input_channel = None
         log.error(f"[SIM] No ADS1115 detected ({e}); using simulated depth readings.")
 
+    # ----------------- Display -----------------
+    try:
+        display = display_hw.build_display(
+            driver=config.DISPLAY_DRIVER,
+            tty=config.DISPLAY_TTY,
+            timezone_name=config.DISPLAY_TIMEZONE,
+            font=config.DISPLAY_FONT,
+            fb_path=config.DISPLAY_FB,
+            font_path=config.DISPLAY_FONT_PATH,
+            font_size=config.DISPLAY_FONT_SIZE,
+            foreground=config.DISPLAY_FOREGROUND,
+            background=config.DISPLAY_BACKGROUND,
+            padding=config.DISPLAY_PADDING,
+            line_spacing=config.DISPLAY_LINE_SPACING,
+            pixel_order=config.DISPLAY_FB_PIXEL_ORDER,
+        )
+    except Exception as e:
+        log.error(f"[DISPLAY] Init failed; disabling display: {e}")
+        display = display_hw.NullDisplay()
+
     # ----------------- Pump + alarms state -----------------
     pump_is_on = False
     alarm_hi_on = False
@@ -127,6 +149,7 @@ def main() -> None:
 
     # --------- Telemetry timer ----------
     last_send_time = time.time()
+    last_display_time = 0.0
 
     # =====================================================
     # MAIN LOOP
@@ -229,6 +252,29 @@ def main() -> None:
 
         alarm_hi_on = hi_alarm_tripped
         alarm_lo_on = lo_alarm_tripped
+
+        # ---------- Display update ----------
+        display_interval = float(getattr(config, "DISPLAY_UPDATE_SECONDS", 1))
+        if display_interval <= 0:
+            display_interval = 1
+        if time.time() - last_display_time >= display_interval:
+            try:
+                display.update(
+                    display_hw.DisplayStatus(
+                        site_name=site_name,
+                        depth_ft=depth,
+                        pump_on=pump_is_on,
+                        alarm_on=alarm_hi_on or alarm_lo_on,
+                        stop_ft=stop_depth,
+                        start_ft=start_depth,
+                        hi_alarm_ft=hi_alarm,
+                        lo_alarm_ft=lo_alarm,
+                        override=override,
+                    )
+                )
+            except Exception as e:
+                log.error(f"[DISPLAY] Update failed: {e}")
+            last_display_time = time.time()
 
         # ---------- Telemetry send ----------
         if time.time() - last_send_time >= INTERVAL_MINUTES * 60:
