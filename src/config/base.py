@@ -1,6 +1,6 @@
 # Shared config defaults and helpers for ControlPod variants.
 
-DEFAULT_MODE = "kclf_v1"
+DEFAULT_MODE = "kclf_v2"
 ENV_VAR = "CONTROL_POD_MODE"
 
 
