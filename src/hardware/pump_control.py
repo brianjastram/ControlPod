@@ -51,6 +51,7 @@ class NumatoPumpController(PumpController):
             self.alarm_relay_candidates = list(self.relay_candidates)
         else:
             self.alarm_relay_candidates = list(alarm_candidates)
+        self._alarm_state: Optional[bool] = None
 
         if self.alarm_driver == "gpio":
             if GPIO is None:
@@ -123,12 +124,16 @@ class NumatoPumpController(PumpController):
             return False
 
     def set_alarm_light(self, state: bool) -> None:
+        if self._alarm_state is not None and state == self._alarm_state:
+            return
+
         if self.alarm_driver == "numato_serial":
             command = f"relay {'on' if state else 'off'} {self.alarm_relay_channel}"
             try:
                 dev = self._resolve_alarm_device()
                 if dev is None:
                     log.warning(f"[ALARM] No alarm relay device available; skipped '{command}'")
+                    self._alarm_state = state
                     return
                 cmd = (command + "\r").encode()
                 with serial.Serial(dev, 9600, timeout=1) as ser:
@@ -139,20 +144,24 @@ class NumatoPumpController(PumpController):
                 )
             except Exception as e:
                 log.error(f"[ALARM] Serial error on {dev or self.alarm_relay_dev}: {e}")
+            self._alarm_state = state
             return
 
         if self.alarm_driver == "gpio":
             if GPIO is None or self.alarm_gpio_pin is None:
                 log.warning("[ALARM] GPIO alarm unavailable; skipped.")
+                self._alarm_state = state
                 return
             try:
                 GPIO.output(self.alarm_gpio_pin, GPIO.HIGH if state else GPIO.LOW)
                 log.info(f"[ALARM] Alarm {'ON' if state else 'OFF'} (GPIO{self.alarm_gpio_pin})")
             except Exception as e:
                 log.error(f"[ALARM] Failed to set alarm state: {e}")
+            self._alarm_state = state
             return
 
         log.warning(f"[ALARM] Unknown alarm driver '{self.alarm_driver}'; alarm output disabled.")
+        self._alarm_state = state
 
 
 def build_pump_controller(

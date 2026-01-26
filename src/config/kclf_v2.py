@@ -48,11 +48,15 @@ AI485_SET_MODE_ON_BOOT = True  # Write data type on startup
 SERIAL_PORT = "/dev/rak"
 RAK_PORT_CANDIDATES = ["/dev/rak", "/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyAMA0"]
 RELAY_PORT = "/dev/rakradio"
-RELAY_DEV = "/dev/ttyACM0"
-RELAY_PORT_CANDIDATES = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyUSB2", "/dev/ttyUSB3"]
-ALARM_RELAY_DEV = "/dev/ttyACM1"
+RELAY_DEV = "/dev/serial/by-id/usb-Numato_Systems_Pvt._Ltd._Numato_Lab_1_Channel_USB_Powered_Relay_Module_NLRL260101R0557-if00"
+RELAY_PORT_CANDIDATES = [
+    "/dev/serial/by-id/usb-Numato_Systems_Pvt._Ltd._Numato_Lab_1_Channel_USB_Powered_Relay_Module_NLRL260101R0557-if00",
+]
+ALARM_RELAY_DEV = "/dev/serial/by-id/usb-Numato_Systems_Pvt._Ltd._Numato_Lab_1_Channel_USB_Powered_Relay_Module_NLRL260101R0556-if00"
 ALARM_RELAY_CHANNEL = 0
-ALARM_RELAY_PORT_CANDIDATES = ["/dev/ttyACM1", "/dev/ttyACM0", "/dev/ttyUSB2", "/dev/ttyUSB3"]
+ALARM_RELAY_PORT_CANDIDATES = [
+    "/dev/serial/by-id/usb-Numato_Systems_Pvt._Ltd._Numato_Lab_1_Channel_USB_Powered_Relay_Module_NLRL260101R0556-if00",
+]
 
 # USB / local paths (override if your mount point differs)
 USB_MOUNT_PATH = "/media/usb"
