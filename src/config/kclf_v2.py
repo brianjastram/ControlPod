@@ -8,7 +8,7 @@ MODE_NAME = "kclf_v2"
 # Hardware selectors
 DEPTH_SENSOR_IMPL = "rs485"
 PUMP_DRIVER = "numato_serial"
-ALARM_DRIVER = "gpio"
+ALARM_DRIVER = "numato_serial"
 RADIO_DRIVER = "rak3172"
 
 # Display (HDMI console)
@@ -50,6 +50,9 @@ RAK_PORT_CANDIDATES = ["/dev/rak", "/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyAMA0
 RELAY_PORT = "/dev/rakradio"
 RELAY_DEV = "/dev/ttyACM0"
 RELAY_PORT_CANDIDATES = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyUSB2", "/dev/ttyUSB3"]
+ALARM_RELAY_DEV = "/dev/ttyACM1"
+ALARM_RELAY_CHANNEL = 0
+ALARM_RELAY_PORT_CANDIDATES = ["/dev/ttyACM1", "/dev/ttyACM0", "/dev/ttyUSB2", "/dev/ttyUSB3"]
 
 # USB / local paths (override if your mount point differs)
 USB_MOUNT_PATH = "/media/usb"

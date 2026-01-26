@@ -57,6 +57,10 @@ def main() -> None:
         config.RELAY_DEV,
         config.ALARM_GPIO_PIN,
         relay_candidates=getattr(config, "RELAY_PORT_CANDIDATES", None),
+        alarm_driver=getattr(config, "ALARM_DRIVER", "gpio"),
+        alarm_relay_dev=getattr(config, "ALARM_RELAY_DEV", None),
+        alarm_relay_channel=int(getattr(config, "ALARM_RELAY_CHANNEL", 0)),
+        alarm_candidates=getattr(config, "ALARM_RELAY_PORT_CANDIDATES", None),
     )
 
     if config.RADIO_DRIVER != "rak3172":
