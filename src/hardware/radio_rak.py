@@ -145,6 +145,26 @@ def _ensure_radio_config(rak: RAK3172Communicator, *, force: bool = False) -> No
             log.warning(f"[RAK] {key}={desired_value} apply warning: {e}")
 
 
+def _log_radio_profile(rak: RAK3172Communicator, context: str) -> None:
+    adr_lines: list[str] = []
+    dr_lines: list[str] = []
+    try:
+        adr_lines = rak.send_command("AT+ADR?")
+    except Exception as e:
+        log.warning(f"[RAK] ADR? query failed ({context}): {e}")
+    try:
+        dr_lines = rak.send_command("AT+DR?")
+    except Exception as e:
+        log.warning(f"[RAK] DR? query failed ({context}): {e}")
+
+    if not adr_lines and not dr_lines:
+        return
+
+    adr_display = " | ".join(adr_lines) if adr_lines else "ADR? (no response)"
+    dr_display = " | ".join(dr_lines) if dr_lines else "DR? (no response)"
+    log.info("[RAK] %s profile -> %s ; %s", context, adr_display, dr_display)
+
+
 def _health_check(rak: RAK3172Communicator) -> bool:
     try:
         resp = rak.send_command("AT")
@@ -177,6 +197,7 @@ def connect(port: Optional[str] = None) -> Optional[RAK3172Communicator]:
             # Configure ADR / DR / confirm mode to stable values
             try:
                 _ensure_radio_config(rak, force=True)
+                _log_radio_profile(rak, "connect/enforced")
             except Exception as e:
                 log.warning(f"[RAK] ADR/DR/CFM setup warning: {e}")
 
@@ -240,6 +261,13 @@ def ensure_joined(
     max_join_attempts: int = 2,
     join_cmd: str = "AT+JOIN=1:1:10:5",
 ) -> bool:
+    # Enforce ADR/DR/CFM before any join attempt or status check.
+    try:
+        _ensure_radio_config(rak, force=True)
+        _log_radio_profile(rak, "pre-join enforce")
+    except Exception as e:
+        log.warning(f"[RAK] ADR/DR/CFM pre-join enforce warning: {e}")
+
     # 1) Query join status
     resp = _query_join_status(rak)
     log.info(f"[RAK] NJS check -> {' | '.join(resp)}")
