@@ -76,3 +76,23 @@ fallback to `DummyRAK` during bench testing, set an environment variable:
 ```
 ALLOW_DUMMY_RAK=1
 ```
+
+### Tap-to-wake display (LIS3DH/LIS3DHTR)
+
+ControlPod can use a LIS3DH/LIS3DHTR accelerometer on I2C to wake the HDMI display
+on double-tap and blank it after a timeout. Configure in `src/config/kclf_v1.py`
+or `src/config/kclf_v2.py`:
+
+```
+TAP_WAKE_ENABLED = True
+TAP_WAKE_I2C_BUS = 1
+TAP_WAKE_I2C_ADDR = 0x19
+TAP_WAKE_ON_SECONDS = 300
+TAP_WAKE_START_OFF = True
+```
+
+Install the SMBus bindings on Pi OS:
+
+```bash
+sudo apt-get install -y python3-smbus
+```

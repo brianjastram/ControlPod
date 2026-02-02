@@ -26,6 +26,8 @@ DISPLAY_PADDING = 6
 DISPLAY_LINE_SPACING = 2
 DISPLAY_FB_PIXEL_ORDER = "RGB"
 
+# Tap-to-wake (LIS3DH/LIS3DHTR over I2C)
+TAP_WAKE_ENABLED = True
 # RS485 / Waveshare AI485 settings
 AI485_PORT = "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BG01Q3R0-if00-port0"     # Primary USB-to-RS485 adapter port
 AI485_PORT_CANDIDATES = [

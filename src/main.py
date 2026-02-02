@@ -34,6 +34,7 @@ from src.hardware import depth_sensor as depth_hw
 from src.hardware import pump_control
 from src.hardware import radio_rak as rak_service
 from src.hardware import display as display_hw
+from src.hardware import tap_wake as tap_wake_hw
 from src.model.rak_dummy import DummyRAK
 
 logger.setupLogging()
@@ -113,13 +114,14 @@ depth_sensor = None
 pump = None
 rak = None
 display = None
+tap_wake = None
 
 # ---------------------------------------------------------------------------
 # MAIN CONTROL LOOP
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    global rak, depth_sensor, pump, display, _low_battery_seen
+    global rak, depth_sensor, pump, display, tap_wake, _low_battery_seen
     _install_signal_handlers()
     print(f"Starting ControlPod ({config.MODE}) ...")
     _write_marker(HEARTBEAT_PATH, f"{_now_iso()} | boot")
@@ -178,6 +180,22 @@ def main() -> None:
         padding=int(getattr(config, "DISPLAY_PADDING", 10)),
         line_spacing=int(getattr(config, "DISPLAY_LINE_SPACING", 4)),
         pixel_order=getattr(config, "DISPLAY_FB_PIXEL_ORDER", "RGB"),
+    )
+
+    tap_wake_enabled = getattr(config, "TAP_WAKE_ENABLED", False)
+    if isinstance(tap_wake_enabled, str):
+        tap_wake_enabled = tap_wake_enabled.strip().lower() in ("1", "true", "yes", "on")
+    tap_wake = tap_wake_hw.build_tap_wake(
+        enabled=bool(tap_wake_enabled),
+        i2c_bus=int(getattr(config, "TAP_WAKE_I2C_BUS", 1)),
+        i2c_addr=int(getattr(config, "TAP_WAKE_I2C_ADDR", 0x19)),
+        on_seconds=float(getattr(config, "TAP_WAKE_ON_SECONDS", 300)),
+        start_off=bool(getattr(config, "TAP_WAKE_START_OFF", True)),
+        display_id=getattr(config, "TAP_WAKE_DISPLAY_ID", None),
+        click_threshold=int(getattr(config, "TAP_WAKE_CLICK_THRESHOLD", 0x10)),
+        time_limit=int(getattr(config, "TAP_WAKE_TIME_LIMIT", 0x10)),
+        time_latency=int(getattr(config, "TAP_WAKE_TIME_LATENCY", 0x20)),
+        time_window=int(getattr(config, "TAP_WAKE_TIME_WINDOW", 0x30)),
     )
 
     # ----------------- Depth sensor setup -----------------
@@ -348,6 +366,12 @@ def main() -> None:
             alarm_hi_on = hi_alarm_tripped
             alarm_lo_on = lo_alarm_tripped
 
+            # ---------- Tap-to-wake ----------
+            try:
+                tap_wake.poll()
+            except Exception as e:
+                log.error(f"[TAP] Poll failed: {e}")
+
             # ---------- Display update ----------
             display_interval = float(getattr(config, "DISPLAY_UPDATE_SECONDS", 1))
             if display_interval <= 0:
@@ -417,6 +441,10 @@ def main() -> None:
     finally:
         _write_marker(SHUTDOWN_PATH, f"{_now_iso()} | exit:{_shutdown_reason}")
         log.warning(f"[MAIN] Exiting main loop: {_shutdown_reason}")
+        try:
+            tap_wake.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
