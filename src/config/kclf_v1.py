@@ -26,6 +26,7 @@ LORA_CFM = 0  # Unconfirmed uplinks
 LORA_ENFORCE_EVERY_SEND = True  # Re-apply ADR/DR/CFM before each uplink
 RAK_HEALTHCHECK_EVERY_SENDS = 10  # Send "AT" every N uplinks to detect UART issues
 RAK_HEALTHCHECK_FAILS_BEFORE_RESET = 2  # Consecutive failed checks before reconnect
+ALLOW_DUMMY_RAK = False  # Only allow DummyRAK when explicitly enabled (bench testing)
 
 # Low-battery shutdown behavior (optional; used by main.py if set)
 LOW_BATTERY_PATH = "/run/controlpod.low_battery"
@@ -88,6 +89,7 @@ __all__ = [
     "LORA_ENFORCE_EVERY_SEND",
     "RAK_HEALTHCHECK_EVERY_SENDS",
     "RAK_HEALTHCHECK_FAILS_BEFORE_RESET",
+    "ALLOW_DUMMY_RAK",
     "LOW_BATTERY_PATH",
     "LOW_BATTERY_SHUTDOWN_CMD",
     "DISPLAY_DRIVER",

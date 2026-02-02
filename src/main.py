@@ -135,13 +135,32 @@ def main() -> None:
         alarm_candidates=getattr(config, "ALARM_RELAY_PORT_CANDIDATES", None),
     )
 
+    allow_dummy_rak = bool(getattr(config, "ALLOW_DUMMY_RAK", False))
     if config.RADIO_DRIVER != "rak3172":
-        log.warning(f"[RADIO] Driver '{config.RADIO_DRIVER}' not implemented; using DummyRAK.")
-        rak = DummyRAK()
+        if allow_dummy_rak:
+            log.warning(
+                f"[RADIO] Driver '{config.RADIO_DRIVER}' not implemented; using DummyRAK."
+            )
+            rak = DummyRAK()
+        else:
+            log.error(
+                f"[RADIO] Driver '{config.RADIO_DRIVER}' not implemented and "
+                "ALLOW_DUMMY_RAK is false; exiting."
+            )
+            _request_shutdown("radio_driver_not_supported")
+            return
     else:
         rak = rak_service.connect()
         if rak is None:
-            rak = DummyRAK()
+            if allow_dummy_rak:
+                log.warning("[RADIO] RAK connect failed; using DummyRAK (allowed).")
+                rak = DummyRAK()
+            else:
+                log.error(
+                    "[RADIO] RAK connect failed and ALLOW_DUMMY_RAK is false; exiting."
+                )
+                _request_shutdown("rak_connect_failed")
+                return
 
     display = display_hw.build_display(
         getattr(config, "DISPLAY_DRIVER", "none"),
