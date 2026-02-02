@@ -12,7 +12,10 @@ from typing import Optional
 try:
     import smbus  # type: ignore
 except Exception:  # pragma: no cover - optional runtime dependency
-    smbus = None
+    try:
+        import smbus2 as smbus  # type: ignore
+    except Exception:
+        smbus = None
 
 log = logging.getLogger(__name__)
 
@@ -71,7 +74,7 @@ class TapWakeController:
 
     def setup(self) -> bool:
         if smbus is None:
-            log.warning("[TAP] smbus not available; install python3-smbus.")
+            log.warning("[TAP] smbus not available; install python3-smbus or pip install smbus2.")
             return False
         try:
             self._bus = smbus.SMBus(self.i2c_bus)

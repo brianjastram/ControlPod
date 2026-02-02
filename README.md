@@ -96,3 +96,10 @@ Install the SMBus bindings on Pi OS:
 ```bash
 sudo apt-get install -y python3-smbus
 ```
+
+If ControlPod runs inside a Python venv and cannot import `smbus`, install
+`smbus2` into the venv:
+
+```bash
+/home/pi/ControlPod/env/bin/pip install smbus2
+```
