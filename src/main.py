@@ -17,6 +17,7 @@ Set CONTROL_POD_MODE (kclf_v1, kclf_v2) to pick hardware config.
 
 import time
 import logging
+import os
 import signal
 import shlex
 import subprocess
@@ -135,7 +136,9 @@ def main() -> None:
         alarm_candidates=getattr(config, "ALARM_RELAY_PORT_CANDIDATES", None),
     )
 
-    allow_dummy_rak = bool(getattr(config, "ALLOW_DUMMY_RAK", False))
+    allow_dummy_rak = bool(
+        int(os.getenv("ALLOW_DUMMY_RAK", "1" if getattr(config, "ALLOW_DUMMY_RAK", False) else "0"))
+    )
     if config.RADIO_DRIVER != "rak3172":
         if allow_dummy_rak:
             log.warning(

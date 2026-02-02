@@ -67,3 +67,12 @@ Check current usage:
 ```bash
 journalctl --disk-usage
 ```
+
+### DummyRAK gating (bench testing)
+
+By default, the service exits if the RAK radio cannot be opened. To allow
+fallback to `DummyRAK` during bench testing, set an environment variable:
+
+```
+ALLOW_DUMMY_RAK=1
+```
