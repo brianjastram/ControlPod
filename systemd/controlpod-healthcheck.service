@@ -1,0 +1,7 @@
+[Unit]
+Description=ControlPod heartbeat health check
+
+[Service]
+Type=oneshot
+Environment=MAX_AGE_SECONDS=600
+ExecStart=/home/pi/ControlPod/scripts/controlpod_healthcheck.sh
