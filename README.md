@@ -13,3 +13,57 @@ Brian Jastram, **Hydrometrix** for Eric Xanderson, **Kandiyohi Co. Land Fill**
 - Syncs setpoints from the USB key on startup
 - Applies downlink commands (override, zero, setpoints)
 - Sends JSON telemetry payloads to ChirpStack at `INTERVAL_MINUTES`
+
+### Reliability / crash diagnostics
+
+The app writes runtime markers to `/run` (tmpfs) for post-mortem debugging:
+
+- `/run/controlpod.heartbeat` updated every loop
+- `/run/controlpod.last_send` updated on successful uplink
+- `/run/controlpod.shutdown` updated on clean shutdown or SIGTERM/SIGINT
+
+Optional systemd health check (timer-based restart if heartbeat is stale):
+
+```bash
+sudo cp /home/pi/ControlPod/systemd/controlpod-healthcheck.service /etc/systemd/system/
+sudo cp /home/pi/ControlPod/systemd/controlpod-healthcheck.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now controlpod-healthcheck.timer
+```
+
+Adjust the timeout with `MAX_AGE_SECONDS` in
+`/home/pi/ControlPod/systemd/controlpod-healthcheck.service`.
+
+### Low-battery graceful shutdown
+
+If `/run/controlpod.low_battery` exists (or contains `1/true/yes/low/critical`),
+the app will:
+
+1) Force the pump OFF
+2) Write shutdown markers
+3) Exit the main loop gracefully
+
+Optional: configure a shutdown command in `src/config/kclf_v1.py`:
+
+```
+LOW_BATTERY_SHUTDOWN_CMD = "sudo /sbin/shutdown -h now"
+```
+
+### Journald persistence and disk limits
+
+Persistent journald uses disk space under `/var/log/journal` (not RAM).
+To cap usage, set limits in `/etc/systemd/journald.conf`:
+
+```
+Storage=persistent
+SystemMaxUse=100M
+SystemMaxFileSize=10M
+RuntimeMaxUse=20M
+MaxRetentionSec=2week
+```
+
+Check current usage:
+
+```bash
+journalctl --disk-usage
+```

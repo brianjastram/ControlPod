@@ -18,6 +18,8 @@ Set CONTROL_POD_MODE (kclf_v1, kclf_v2) to pick hardware config.
 import time
 import logging
 import signal
+import shlex
+import subprocess
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -40,9 +42,12 @@ log = logging.getLogger(__name__)
 HEARTBEAT_PATH = Path("/run/controlpod.heartbeat")
 LAST_SEND_PATH = Path("/run/controlpod.last_send")
 SHUTDOWN_PATH = Path("/run/controlpod.shutdown")
+LOW_BATTERY_PATH = Path(getattr(config, "LOW_BATTERY_PATH", "/run/controlpod.low_battery"))
+LOW_BATTERY_SHUTDOWN_CMD = getattr(config, "LOW_BATTERY_SHUTDOWN_CMD", "")
 
 _stop_requested = False
 _shutdown_reason = "unknown"
+_low_battery_seen = False
 
 
 def _now_iso() -> str:
@@ -75,6 +80,30 @@ def _install_signal_handlers() -> None:
     except Exception as e:
         log.warning(f"[MAIN] Signal handler setup failed: {e}")
 
+
+def _low_battery_triggered() -> bool:
+    if not LOW_BATTERY_PATH.exists():
+        return False
+    try:
+        content = LOW_BATTERY_PATH.read_text(encoding="utf-8").strip().lower()
+    except Exception as e:
+        log.warning(f"[MAIN] Low battery flag read failed: {e}")
+        return False
+    if not content:
+        return True
+    return content in ("1", "true", "yes", "low", "critical")
+
+
+def _maybe_shutdown_system(reason: str) -> None:
+    if not LOW_BATTERY_SHUTDOWN_CMD:
+        return
+    try:
+        args = shlex.split(LOW_BATTERY_SHUTDOWN_CMD)
+        subprocess.run(args, check=False)
+        log.warning(f"[MAIN] Low-battery shutdown command invoked: {LOW_BATTERY_SHUTDOWN_CMD}")
+    except Exception as e:
+        log.error(f"[MAIN] Failed to run shutdown command: {e}")
+
 # ---------------------------------------------------------------------------
 # Hardware instances (set in main)
 # ---------------------------------------------------------------------------
@@ -89,7 +118,7 @@ display = None
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    global rak, depth_sensor, pump, display
+    global rak, depth_sensor, pump, display, _low_battery_seen
     _install_signal_handlers()
     print(f"Starting ControlPod ({config.MODE}) ...")
     _write_marker(HEARTBEAT_PATH, f"{_now_iso()} | boot")
@@ -185,6 +214,17 @@ def main() -> None:
     try:
         while True:
             if _stop_requested:
+                break
+            if _low_battery_triggered():
+                if not _low_battery_seen:
+                    _low_battery_seen = True
+                    log.error("[MAIN] Low battery detected; initiating graceful shutdown.")
+                    try:
+                        pump.turn_off()
+                    except Exception as e:
+                        log.error(f"[PUMP] Low-battery shutdown: failed to force OFF: {e}")
+                    _request_shutdown("low_battery")
+                    _maybe_shutdown_system("low_battery")
                 break
             # ----------------------------------------------------------
             # MEASUREMENT
