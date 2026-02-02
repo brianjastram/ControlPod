@@ -66,3 +66,7 @@ LOCAL_SETPOINTS_FILE = "/home/pi/setpoints.json"
 USB_SETPOINTS_FILE = "/media/usb/setpoints.json"
 
 __all__ = [name for name in globals().keys() if name.isupper() or name.endswith("_IMPL")]
+
+SITE_NAME = "8A"
+
+SITE_ID = 0x008A
