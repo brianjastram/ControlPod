@@ -70,6 +70,7 @@ class TapWakeController:
         toggle_on_tap: bool,
         single_wake: bool,
         mode: str,
+        force_power_on: bool,
         click_threshold: int,
         time_limit: int,
         time_latency: int,
@@ -83,6 +84,7 @@ class TapWakeController:
         self.toggle_on_tap = bool(toggle_on_tap)
         self.single_wake = bool(single_wake)
         self.mode = (mode or "power").strip().lower()
+        self.force_power_on = bool(force_power_on)
         self.click_threshold = int(click_threshold) & 0x7F
         self.time_limit = int(time_limit) & 0xFF
         self.time_latency = int(time_latency) & 0xFF
@@ -133,7 +135,7 @@ class TapWakeController:
         return True
 
     def _set_display_power(self, on: bool) -> None:
-        if self.mode != "blank":
+        if self.mode != "blank" or (on and self.force_power_on):
             cmd = ["vcgencmd", "display_power", "1" if on else "0"]
             if self.display_id is not None:
                 cmd.append(str(self.display_id))
@@ -202,6 +204,7 @@ def build_tap_wake(
     toggle_on_tap: bool,
     single_wake: bool,
     mode: str,
+    force_power_on: bool,
     click_threshold: int,
     time_limit: int,
     time_latency: int,
@@ -219,6 +222,7 @@ def build_tap_wake(
         toggle_on_tap=toggle_on_tap,
         single_wake=single_wake,
         mode=mode,
+        force_power_on=force_power_on,
         click_threshold=click_threshold,
         time_limit=time_limit,
         time_latency=time_latency,

@@ -54,6 +54,7 @@ TAP_WAKE_I2C_ADDR = 0x19
 TAP_WAKE_ON_SECONDS = 300
 TAP_WAKE_START_OFF = True
 TAP_WAKE_MODE = "power"  # "power" or "blank" (blank skips HDMI power toggle)
+TAP_WAKE_FORCE_POWER_ON = False  # In blank mode, force HDMI on when waking
 TAP_WAKE_DISPLAY_ID = None  # HDMI0=2, HDMI1=7, or None for default
 TAP_WAKE_TOGGLE = False  # Double-tap while on turns display off
 TAP_WAKE_SINGLE_WAKE = False  # Allow single-tap to wake display
@@ -126,6 +127,7 @@ __all__ = [
     "TAP_WAKE_ON_SECONDS",
     "TAP_WAKE_START_OFF",
     "TAP_WAKE_MODE",
+    "TAP_WAKE_FORCE_POWER_ON",
     "TAP_WAKE_DISPLAY_ID",
     "TAP_WAKE_TOGGLE",
     "TAP_WAKE_SINGLE_WAKE",

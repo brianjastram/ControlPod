@@ -196,6 +196,7 @@ def main() -> None:
         toggle_on_tap=bool(getattr(config, "TAP_WAKE_TOGGLE", False)),
         single_wake=bool(getattr(config, "TAP_WAKE_SINGLE_WAKE", False)),
         mode=tap_wake_mode,
+        force_power_on=bool(getattr(config, "TAP_WAKE_FORCE_POWER_ON", False)),
         click_threshold=int(getattr(config, "TAP_WAKE_CLICK_THRESHOLD", 0x10)),
         time_limit=int(getattr(config, "TAP_WAKE_TIME_LIMIT", 0x10)),
         time_latency=int(getattr(config, "TAP_WAKE_TIME_LATENCY", 0x20)),
