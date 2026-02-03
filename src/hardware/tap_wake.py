@@ -53,6 +53,7 @@ class TapWakeController:
         on_seconds: float,
         start_off: bool,
         display_id: Optional[int],
+        toggle_on_tap: bool,
         click_threshold: int,
         time_limit: int,
         time_latency: int,
@@ -63,6 +64,7 @@ class TapWakeController:
         self.on_seconds = max(1.0, float(on_seconds))
         self.start_off = bool(start_off)
         self.display_id = display_id if display_id is not None and display_id >= 0 else None
+        self.toggle_on_tap = bool(toggle_on_tap)
         self.click_threshold = int(click_threshold) & 0x7F
         self.time_limit = int(time_limit) & 0xFF
         self.time_latency = int(time_latency) & 0xFF
@@ -136,8 +138,12 @@ class TapWakeController:
             return
 
         if src & CLICK_SRC_DCLICK:
-            self._set_display_power(True)
-            log.info("[TAP] Double-tap detected: display ON for %.0fs.", self.on_seconds)
+            if self.toggle_on_tap and self._display_on:
+                self._set_display_power(False)
+                log.info("[TAP] Double-tap detected: display OFF (toggle).")
+            else:
+                self._set_display_power(True)
+                log.info("[TAP] Double-tap detected: display ON for %.0fs.", self.on_seconds)
 
         if self._display_on and self._off_at and now >= self._off_at:
             self._set_display_power(False)
@@ -159,6 +165,7 @@ def build_tap_wake(
     on_seconds: float,
     start_off: bool,
     display_id: Optional[int],
+    toggle_on_tap: bool,
     click_threshold: int,
     time_limit: int,
     time_latency: int,
@@ -173,6 +180,7 @@ def build_tap_wake(
         on_seconds=on_seconds,
         start_off=start_off,
         display_id=display_id,
+        toggle_on_tap=toggle_on_tap,
         click_threshold=click_threshold,
         time_limit=time_limit,
         time_latency=time_latency,

@@ -28,6 +28,18 @@ DISPLAY_FB_PIXEL_ORDER = "RGB"
 
 # Tap-to-wake (LIS3DH/LIS3DHTR over I2C)
 TAP_WAKE_ENABLED = True
+TAP_WAKE_I2C_BUS = 1
+TAP_WAKE_I2C_ADDR = 0x19
+TAP_WAKE_ON_SECONDS = 300
+TAP_WAKE_START_OFF = True
+TAP_WAKE_DISPLAY_ID = None  # HDMI0=2, HDMI1=7, or None for default
+TAP_WAKE_TOGGLE = True  # Double-tap while on turns display off
+
+# More sensitive double-tap detection for enclosure mounting.
+TAP_WAKE_CLICK_THRESHOLD = 0x08
+TAP_WAKE_TIME_LIMIT = 0x20
+TAP_WAKE_TIME_LATENCY = 0x30
+TAP_WAKE_TIME_WINDOW = 0x60
 # RS485 / Waveshare AI485 settings
 AI485_PORT = "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BG01Q3R0-if00-port0"     # Primary USB-to-RS485 adapter port
 AI485_PORT_CANDIDATES = [
