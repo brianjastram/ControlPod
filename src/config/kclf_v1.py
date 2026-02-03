@@ -55,6 +55,7 @@ TAP_WAKE_ON_SECONDS = 300
 TAP_WAKE_START_OFF = True
 TAP_WAKE_DISPLAY_ID = None  # HDMI0=2, HDMI1=7, or None for default
 TAP_WAKE_TOGGLE = False  # Double-tap while on turns display off
+TAP_WAKE_SINGLE_WAKE = False  # Allow single-tap to wake display
 TAP_WAKE_CLICK_THRESHOLD = 0x10
 TAP_WAKE_TIME_LIMIT = 0x10
 TAP_WAKE_TIME_LATENCY = 0x20
@@ -125,6 +126,7 @@ __all__ = [
     "TAP_WAKE_START_OFF",
     "TAP_WAKE_DISPLAY_ID",
     "TAP_WAKE_TOGGLE",
+    "TAP_WAKE_SINGLE_WAKE",
     "TAP_WAKE_CLICK_THRESHOLD",
     "TAP_WAKE_TIME_LIMIT",
     "TAP_WAKE_TIME_LATENCY",

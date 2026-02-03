@@ -32,6 +32,17 @@ TIME_WINDOW = 0x3D
 
 # CLICK_SRC bit for double click
 CLICK_SRC_DCLICK = 0x20
+CLICK_SRC_SCLICK = 0x10
+
+# CLICK_CFG bit mapping (per LIS3DH datasheet)
+CLICK_CFG_XS = 0x01
+CLICK_CFG_XD = 0x02
+CLICK_CFG_YS = 0x04
+CLICK_CFG_YD = 0x08
+CLICK_CFG_ZS = 0x10
+CLICK_CFG_ZD = 0x20
+CLICK_CFG_ALL_SINGLE = CLICK_CFG_XS | CLICK_CFG_YS | CLICK_CFG_ZS
+CLICK_CFG_ALL_DOUBLE = CLICK_CFG_XD | CLICK_CFG_YD | CLICK_CFG_ZD
 
 
 class NullTapWake:
@@ -54,6 +65,7 @@ class TapWakeController:
         start_off: bool,
         display_id: Optional[int],
         toggle_on_tap: bool,
+        single_wake: bool,
         click_threshold: int,
         time_limit: int,
         time_latency: int,
@@ -65,6 +77,7 @@ class TapWakeController:
         self.start_off = bool(start_off)
         self.display_id = display_id if display_id is not None and display_id >= 0 else None
         self.toggle_on_tap = bool(toggle_on_tap)
+        self.single_wake = bool(single_wake)
         self.click_threshold = int(click_threshold) & 0x7F
         self.time_limit = int(time_limit) & 0xFF
         self.time_latency = int(time_latency) & 0xFF
@@ -84,8 +97,11 @@ class TapWakeController:
             self._bus.write_byte_data(self.i2c_addr, CTRL_REG1, 0x57)
             # High-resolution + BDU, ±2g
             self._bus.write_byte_data(self.i2c_addr, CTRL_REG4, 0x88)
-            # Enable double-click on X/Y/Z (ZD/YD/XD)
-            self._bus.write_byte_data(self.i2c_addr, CLICK_CFG, 0x2A)
+            # Enable double-click on X/Y/Z; optionally enable single-click too.
+            click_cfg = CLICK_CFG_ALL_DOUBLE
+            if self.single_wake:
+                click_cfg |= CLICK_CFG_ALL_SINGLE
+            self._bus.write_byte_data(self.i2c_addr, CLICK_CFG, click_cfg)
             # Latch click (bit 7) + threshold
             self._bus.write_byte_data(
                 self.i2c_addr, CLICK_THS, 0x80 | self.click_threshold
@@ -144,6 +160,11 @@ class TapWakeController:
             else:
                 self._set_display_power(True)
                 log.info("[TAP] Double-tap detected: display ON for %.0fs.", self.on_seconds)
+            return
+
+        if self.single_wake and (src & CLICK_SRC_SCLICK):
+            self._set_display_power(True)
+            log.info("[TAP] Single-tap detected: display ON for %.0fs.", self.on_seconds)
 
         if self._display_on and self._off_at and now >= self._off_at:
             self._set_display_power(False)
@@ -166,6 +187,7 @@ def build_tap_wake(
     start_off: bool,
     display_id: Optional[int],
     toggle_on_tap: bool,
+    single_wake: bool,
     click_threshold: int,
     time_limit: int,
     time_latency: int,
@@ -181,6 +203,7 @@ def build_tap_wake(
         start_off=start_off,
         display_id=display_id,
         toggle_on_tap=toggle_on_tap,
+        single_wake=single_wake,
         click_threshold=click_threshold,
         time_limit=time_limit,
         time_latency=time_latency,
