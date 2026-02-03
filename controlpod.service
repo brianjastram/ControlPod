@@ -11,8 +11,8 @@ WorkingDirectory=/home/pi/ControlPod
 ExecStart=/home/pi/control_pod/env/bin/python /home/pi/control_pod/main.py
 Restart=always
 RestartSec=5
-StandardOutput=append:/home/pi/logs/controlpod_service.log
-StandardError=append:/home/pi/logs/controlpod_service.log
+StandardOutput=journal
+StandardError=journal
 Environment=PYTHONUNBUFFERED=1
 Environment=HEARTBEAT_PATH=/run/controlpod/heartbeat
 Environment=LAST_SEND_PATH=/run/controlpod/last_send
