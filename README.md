@@ -34,6 +34,35 @@ sudo systemctl enable --now controlpod-healthcheck.timer
 Adjust the timeout with `MAX_AGE_SECONDS` in
 `/home/pi/ControlPod/systemd/controlpod-healthcheck.service`.
 
+### Per-device overrides (/etc/controlpod.env)
+
+ControlPod can load per-device overrides from `/etc/controlpod.env` (optional).
+This is useful when cloning SD cards across multiple pods.
+
+Supported keys:
+
+```
+SITE_NAME=8A
+SITE_ID=0x008A
+DEVICE_NAME=kclf_pod_8a
+DISPLAY_TIMEZONE=America/Chicago
+```
+
+The systemd unit includes:
+
+```
+EnvironmentFile=-/etc/controlpod.env
+```
+
+### Per-device setup helper
+
+Use the interactive helper to write `/etc/controlpod.env` (and optionally
+program RAK keys):
+
+```
+sudo python /home/pi/ControlPod/scripts/controlpod_setup.py
+```
+
 ### Low-battery graceful shutdown
 
 If `/run/controlpod.low_battery` exists (or contains `1/true/yes/low/critical`),

@@ -1,6 +1,6 @@
 # KCLF v1 (current hardware: ADS1115 depth, Numato relay, RAK3172)
 
-from .base import LOCAL_ROOT_DIR, LOG_DIR
+from .base import LOCAL_ROOT_DIR, LOG_DIR, env_int, env_str
 
 # Mode metadata / selectors
 MODE_NAME = "kclf_v1"
@@ -10,9 +10,9 @@ ALARM_DRIVER = "gpio"
 RADIO_DRIVER = "rak3172"
 
 # Device identity
-DEVICE_NAME = "kandiyohi_pi_rak"
-SITE_NAME = "8B"
-SITE_ID = 0x008B
+DEVICE_NAME = env_str("DEVICE_NAME", "kandiyohi_pi_rak")
+SITE_NAME = env_str("SITE_NAME", "8B")
+SITE_ID = env_int("SITE_ID", 0x008B)
 
 # Timing
 INTERVAL_MINUTES = 1.00
@@ -36,7 +36,7 @@ LOW_BATTERY_SHUTDOWN_CMD = ""
 DISPLAY_DRIVER = "none"  # "console" to render to /dev/tty1
 DISPLAY_TTY = "/dev/tty1"
 DISPLAY_UPDATE_SECONDS = 1
-DISPLAY_TIMEZONE = "UTC"
+DISPLAY_TIMEZONE = env_str("DISPLAY_TIMEZONE", "UTC")
 DISPLAY_FONT = ""
 DISPLAY_FB = "/dev/fb0"
 DISPLAY_FONT_PATH = ""

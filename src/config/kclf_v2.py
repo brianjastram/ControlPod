@@ -2,6 +2,7 @@
 # Currently inherits v1 values; override hardware selectors as wiring matures.
 
 from .kclf_v1 import *
+from .base import env_int, env_str
 
 MODE_NAME = "kclf_v2"
 
@@ -15,7 +16,7 @@ RADIO_DRIVER = "rak3172"
 DISPLAY_DRIVER = "framebuffer"
 DISPLAY_TTY = "/dev/tty1"
 DISPLAY_UPDATE_SECONDS = 1
-DISPLAY_TIMEZONE = "America/Chicago"
+DISPLAY_TIMEZONE = env_str("DISPLAY_TIMEZONE", "America/Chicago")
 DISPLAY_FONT = "Lat15-TerminusBold24x12"
 DISPLAY_FB = "/dev/fb0"
 DISPLAY_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -82,6 +83,5 @@ USB_SETPOINTS_FILE = "/media/usb/setpoints.json"
 
 __all__ = [name for name in globals().keys() if name.isupper() or name.endswith("_IMPL")]
 
-SITE_NAME = "8A"
-
-SITE_ID = 0x008A
+SITE_NAME = env_str("SITE_NAME", "8A")
+SITE_ID = env_int("SITE_ID", 0x008A)
