@@ -37,10 +37,10 @@ TAP_WAKE_TOGGLE = True  # Double-tap while on turns display off
 TAP_WAKE_SINGLE_WAKE = False  # Double-tap only
 
 # More sensitive double-tap detection for enclosure mounting.
-TAP_WAKE_CLICK_THRESHOLD = 0x06
-TAP_WAKE_TIME_LIMIT = 0x10
-TAP_WAKE_TIME_LATENCY = 0x10
-TAP_WAKE_TIME_WINDOW = 0xA0
+TAP_WAKE_CLICK_THRESHOLD = 0x04
+TAP_WAKE_TIME_LIMIT = 0x20
+TAP_WAKE_TIME_LATENCY = 0x04
+TAP_WAKE_TIME_WINDOW = 0xC0
 # RS485 / Waveshare AI485 settings
 AI485_PORT = "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BG01Q3R0-if00-port0"     # Primary USB-to-RS485 adapter port
 AI485_PORT_CANDIDATES = [
