@@ -45,6 +45,9 @@ class NullDisplay:
     def update(self, status: DisplayStatus) -> None:
         return
 
+    def blank(self) -> None:
+        return
+
     def close(self) -> None:
         return
 
@@ -112,6 +115,9 @@ class ConsoleDisplay:
         # Clear screen and home cursor.
         payload = "\x1b[2J\x1b[H" + "\n".join(lines) + "\n"
         self._write(payload)
+
+    def blank(self) -> None:
+        self._write("\x1b[2J\x1b[H")
 
     def close(self) -> None:
         if self._fp:
@@ -238,6 +244,10 @@ class FramebufferDisplay:
                 self._fb.write(raw)
         except Exception as e:
             log.error(f"[DISPLAY] FB write failed: {e}")
+
+    def blank(self) -> None:
+        image = Image.new("RGB", self._size, self.background)
+        self._blit(image)
 
     def _pack_rgb565(self, image: "Image.Image") -> bytes:
         width, height = self._size

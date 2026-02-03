@@ -49,8 +49,11 @@ class NullTapWake:
     def setup(self) -> bool:
         return False
 
-    def poll(self, now: Optional[float] = None) -> None:
-        return
+    def poll(self, now: Optional[float] = None) -> Optional[str]:
+        return None
+
+    def is_display_on(self) -> bool:
+        return True
 
     def close(self) -> None:
         return
@@ -66,6 +69,7 @@ class TapWakeController:
         display_id: Optional[int],
         toggle_on_tap: bool,
         single_wake: bool,
+        mode: str,
         click_threshold: int,
         time_limit: int,
         time_latency: int,
@@ -78,6 +82,7 @@ class TapWakeController:
         self.display_id = display_id if display_id is not None and display_id >= 0 else None
         self.toggle_on_tap = bool(toggle_on_tap)
         self.single_wake = bool(single_wake)
+        self.mode = (mode or "power").strip().lower()
         self.click_threshold = int(click_threshold) & 0x7F
         self.time_limit = int(time_limit) & 0xFF
         self.time_latency = int(time_latency) & 0xFF
@@ -128,14 +133,15 @@ class TapWakeController:
         return True
 
     def _set_display_power(self, on: bool) -> None:
-        cmd = ["vcgencmd", "display_power", "1" if on else "0"]
-        if self.display_id is not None:
-            cmd.append(str(self.display_id))
-        try:
-            subprocess.run(cmd, check=False, capture_output=True, text=True)
-        except Exception as e:
-            log.error(f"[TAP] display_power command failed: {e}")
-            return
+        if self.mode != "blank":
+            cmd = ["vcgencmd", "display_power", "1" if on else "0"]
+            if self.display_id is not None:
+                cmd.append(str(self.display_id))
+            try:
+                subprocess.run(cmd, check=False, capture_output=True, text=True)
+            except Exception as e:
+                log.error(f"[TAP] display_power command failed: {e}")
+                return
 
         self._display_on = on
         if on:
@@ -143,32 +149,39 @@ class TapWakeController:
         else:
             self._off_at = 0.0
 
-    def poll(self, now: Optional[float] = None) -> None:
+    def is_display_on(self) -> bool:
+        return self._display_on
+
+    def poll(self, now: Optional[float] = None) -> Optional[str]:
         if self._bus is None:
-            return
+            return None
         now = time.time() if now is None else now
         try:
             src = self._bus.read_byte_data(self.i2c_addr, CLICK_SRC)
         except Exception as e:
             log.error(f"[TAP] CLICK_SRC read failed: {e}")
-            return
+            return None
 
         if src & CLICK_SRC_DCLICK:
             if self.toggle_on_tap and self._display_on:
                 self._set_display_power(False)
                 log.info("[TAP] Double-tap detected: display OFF (toggle).")
+                return "off"
             else:
                 self._set_display_power(True)
                 log.info("[TAP] Double-tap detected: display ON for %.0fs.", self.on_seconds)
-            return
+                return "on"
 
         if self.single_wake and (src & CLICK_SRC_SCLICK):
             self._set_display_power(True)
             log.info("[TAP] Single-tap detected: display ON for %.0fs.", self.on_seconds)
+            return "on"
 
         if self._display_on and self._off_at and now >= self._off_at:
             self._set_display_power(False)
             log.info("[TAP] Display timer expired: display OFF.")
+            return "off"
+        return None
 
     def close(self) -> None:
         if self._bus is not None:
@@ -188,6 +201,7 @@ def build_tap_wake(
     display_id: Optional[int],
     toggle_on_tap: bool,
     single_wake: bool,
+    mode: str,
     click_threshold: int,
     time_limit: int,
     time_latency: int,
@@ -204,6 +218,7 @@ def build_tap_wake(
         display_id=display_id,
         toggle_on_tap=toggle_on_tap,
         single_wake=single_wake,
+        mode=mode,
         click_threshold=click_threshold,
         time_limit=time_limit,
         time_latency=time_latency,

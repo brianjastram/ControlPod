@@ -185,6 +185,7 @@ def main() -> None:
     tap_wake_enabled = getattr(config, "TAP_WAKE_ENABLED", False)
     if isinstance(tap_wake_enabled, str):
         tap_wake_enabled = tap_wake_enabled.strip().lower() in ("1", "true", "yes", "on")
+    tap_wake_mode = str(getattr(config, "TAP_WAKE_MODE", "power")).strip().lower()
     tap_wake = tap_wake_hw.build_tap_wake(
         enabled=bool(tap_wake_enabled),
         i2c_bus=int(getattr(config, "TAP_WAKE_I2C_BUS", 1)),
@@ -194,11 +195,21 @@ def main() -> None:
         display_id=getattr(config, "TAP_WAKE_DISPLAY_ID", None),
         toggle_on_tap=bool(getattr(config, "TAP_WAKE_TOGGLE", False)),
         single_wake=bool(getattr(config, "TAP_WAKE_SINGLE_WAKE", False)),
+        mode=tap_wake_mode,
         click_threshold=int(getattr(config, "TAP_WAKE_CLICK_THRESHOLD", 0x10)),
         time_limit=int(getattr(config, "TAP_WAKE_TIME_LIMIT", 0x10)),
         time_latency=int(getattr(config, "TAP_WAKE_TIME_LATENCY", 0x20)),
         time_window=int(getattr(config, "TAP_WAKE_TIME_WINDOW", 0x30)),
     )
+    tap_blank_mode = bool(tap_wake_enabled) and tap_wake_mode == "blank"
+    display_awake = True
+    if tap_blank_mode:
+        display_awake = not bool(getattr(config, "TAP_WAKE_START_OFF", True))
+        if not display_awake:
+            try:
+                display.blank()
+            except Exception:
+                pass
 
     # ----------------- Depth sensor setup -----------------
     depth_ready = depth_sensor.setup()
@@ -370,7 +381,16 @@ def main() -> None:
 
             # ---------- Tap-to-wake ----------
             try:
-                tap_wake.poll()
+                tap_event = tap_wake.poll()
+                if tap_blank_mode and tap_event:
+                    if tap_event == "on":
+                        display_awake = True
+                    elif tap_event == "off":
+                        display_awake = False
+                        try:
+                            display.blank()
+                        except Exception:
+                            pass
             except Exception as e:
                 log.error(f"[TAP] Poll failed: {e}")
 
@@ -378,7 +398,7 @@ def main() -> None:
             display_interval = float(getattr(config, "DISPLAY_UPDATE_SECONDS", 1))
             if display_interval <= 0:
                 display_interval = 1
-            if time.time() - last_display_time >= display_interval:
+            if (not tap_blank_mode or display_awake) and time.time() - last_display_time >= display_interval:
                 try:
                     display.update(
                         display_hw.DisplayStatus(

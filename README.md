@@ -89,6 +89,7 @@ TAP_WAKE_I2C_BUS = 1
 TAP_WAKE_I2C_ADDR = 0x19
 TAP_WAKE_ON_SECONDS = 300
 TAP_WAKE_START_OFF = True
+TAP_WAKE_MODE = "blank"  # "blank" keeps HDMI on for fast wake; "power" saves power
 TAP_WAKE_TOGGLE = True
 TAP_WAKE_SINGLE_WAKE = True
 ```
