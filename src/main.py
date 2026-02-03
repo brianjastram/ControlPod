@@ -41,9 +41,9 @@ logger.setupLogging()
 log = logging.getLogger(__name__)
 
 # Runtime markers (tmpfs) for crash diagnostics.
-HEARTBEAT_PATH = Path("/run/controlpod.heartbeat")
-LAST_SEND_PATH = Path("/run/controlpod.last_send")
-SHUTDOWN_PATH = Path("/run/controlpod.shutdown")
+HEARTBEAT_PATH = Path(os.getenv("HEARTBEAT_PATH", "/run/controlpod/heartbeat"))
+LAST_SEND_PATH = Path(os.getenv("LAST_SEND_PATH", "/run/controlpod/last_send"))
+SHUTDOWN_PATH = Path(os.getenv("SHUTDOWN_PATH", "/run/controlpod/shutdown"))
 LOW_BATTERY_PATH = Path(getattr(config, "LOW_BATTERY_PATH", "/run/controlpod.low_battery"))
 LOW_BATTERY_SHUTDOWN_CMD = getattr(config, "LOW_BATTERY_SHUTDOWN_CMD", "")
 
@@ -58,6 +58,7 @@ def _now_iso() -> str:
 
 def _write_marker(path: Path, content: str) -> None:
     try:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content + "\n", encoding="utf-8")
     except Exception as e:
         log.debug(f"[MARKER] Failed to write {path}: {e}")

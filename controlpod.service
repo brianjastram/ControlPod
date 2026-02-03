@@ -13,7 +13,12 @@ Restart=always
 RestartSec=5
 StandardOutput=append:/home/pi/logs/controlpod_service.log
 StandardError=append:/home/pi/logs/controlpod_service.log
-Environment="PYTHONUNBUFFERED=1"
+Environment=PYTHONUNBUFFERED=1
+Environment=HEARTBEAT_PATH=/run/controlpod/heartbeat
+Environment=LAST_SEND_PATH=/run/controlpod/last_send
+Environment=SHUTDOWN_PATH=/run/controlpod/shutdown
+RuntimeDirectory=controlpod
+RuntimeDirectoryMode=0755
 TimeoutStartSec=30
 
 [Install]

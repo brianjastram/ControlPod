@@ -4,4 +4,5 @@ Description=ControlPod heartbeat health check
 [Service]
 Type=oneshot
 Environment=MAX_AGE_SECONDS=600
+Environment=HEARTBEAT_PATH=/run/controlpod/heartbeat
 ExecStart=/home/pi/ControlPod/scripts/controlpod_healthcheck.sh

@@ -16,11 +16,11 @@ Brian Jastram, **Hydrometrix** for Eric Xanderson, **Kandiyohi Co. Land Fill**
 
 ### Reliability / crash diagnostics
 
-The app writes runtime markers to `/run` (tmpfs) for post-mortem debugging:
+The app writes runtime markers to `/run/controlpod` (tmpfs) for post-mortem debugging:
 
-- `/run/controlpod.heartbeat` updated every loop
-- `/run/controlpod.last_send` updated on successful uplink
-- `/run/controlpod.shutdown` updated on clean shutdown or SIGTERM/SIGINT
+- `/run/controlpod/heartbeat` updated every loop
+- `/run/controlpod/last_send` updated on successful uplink
+- `/run/controlpod/shutdown` updated on clean shutdown or SIGTERM/SIGINT
 
 Optional systemd health check (timer-based restart if heartbeat is stale):
 

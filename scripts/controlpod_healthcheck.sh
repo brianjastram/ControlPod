@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-HEARTBEAT_PATH="${HEARTBEAT_PATH:-/run/controlpod.heartbeat}"
+HEARTBEAT_PATH="${HEARTBEAT_PATH:-/run/controlpod/heartbeat}"
 MAX_AGE_SECONDS="${MAX_AGE_SECONDS:-600}"
 
 if [[ ! -f "$HEARTBEAT_PATH" ]]; then
