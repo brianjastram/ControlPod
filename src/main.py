@@ -125,6 +125,14 @@ def main() -> None:
     global rak, depth_sensor, pump, display, tap_wake, _low_battery_seen
     _install_signal_handlers()
     print(f"Starting ControlPod ({config.MODE}) ...")
+    log.info(
+        "[MAIN] Startup pid=%s mode=%s heartbeat=%s last_send=%s shutdown=%s",
+        os.getpid(),
+        config.MODE,
+        HEARTBEAT_PATH,
+        LAST_SEND_PATH,
+        SHUTDOWN_PATH,
+    )
     _write_marker(HEARTBEAT_PATH, f"{_now_iso()} | boot")
 
     depth_sensor = depth_hw.build_depth_sensor(config.DEPTH_SENSOR_IMPL)
