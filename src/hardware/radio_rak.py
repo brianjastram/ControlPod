@@ -184,7 +184,12 @@ def connect(port: Optional[str] = None) -> Optional[RAK3172Communicator]:
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             port_try = ports_to_try[(attempt - 1) % len(ports_to_try)]
-            rak = RAK3172Communicator(port_try)
+            rak = RAK3172Communicator(
+                port_try,
+                baudrate=int(getattr(config, "RAK_BAUD", 115200)),
+                timeout=float(getattr(config, "RAK_SERIAL_TIMEOUT_SEC", 1.0)),
+                write_timeout=float(getattr(config, "RAK_SERIAL_WRITE_TIMEOUT_SEC", 1.0)),
+            )
             rak.connect()
             log.info(f"[RAK] Connected to RAK3172 on {port_try}")
 

@@ -107,10 +107,17 @@ class Rs485DepthSensor(DepthSensor):
     def setup(self) -> bool:
         ports_to_try = [p for p in [self.port, *self.port_candidates] if p]
         last_error = None
+        read_timeout = float(getattr(config, "AI485_SERIAL_TIMEOUT_SEC", 1.0))
+        write_timeout = float(getattr(config, "AI485_SERIAL_WRITE_TIMEOUT_SEC", 1.0))
 
         for candidate in ports_to_try:
             try:
-                with serial.Serial(candidate, self.baud, timeout=1) as ser:
+                with serial.Serial(
+                    candidate,
+                    self.baud,
+                    timeout=read_timeout,
+                    write_timeout=write_timeout,
+                ) as ser:
                     ser.reset_input_buffer()
                     if self.set_mode_on_boot:
                         reg_addr = 0x1000 + self.channel  # 0x1000-0x1007 map to CH1-CH8
@@ -135,7 +142,12 @@ class Rs485DepthSensor(DepthSensor):
 
     def _read_raw_channel(self) -> int:
         frame = _build_read_input_regs(self.device_id, self.channel, 1)
-        with serial.Serial(self.port, self.baud, timeout=1) as ser:
+        with serial.Serial(
+            self.port,
+            self.baud,
+            timeout=float(getattr(config, "AI485_SERIAL_TIMEOUT_SEC", 1.0)),
+            write_timeout=float(getattr(config, "AI485_SERIAL_WRITE_TIMEOUT_SEC", 1.0)),
+        ) as ser:
             ser.write(frame)
             ser.flush()
             time.sleep(0.05)

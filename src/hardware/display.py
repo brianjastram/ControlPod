@@ -127,6 +127,24 @@ class ConsoleDisplay:
                 pass
             self._fp = None
 
+    def _apply_font(self, font: str) -> None:
+        try:
+            import subprocess
+
+            result = subprocess.run(
+                ["setfont", font],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                err = result.stderr.strip() or result.stdout.strip()
+                log.warning(f"[DISPLAY] setfont failed ({result.returncode}): {err}")
+        except FileNotFoundError:
+            log.warning("[DISPLAY] setfont not found; skipping font change.")
+        except Exception as e:
+            log.warning(f"[DISPLAY] setfont error: {e}")
+
 
 class FramebufferDisplay:
     def __init__(
@@ -379,20 +397,3 @@ def build_display(
             pixel_order=pixel_order,
         )
     raise ValueError(f"Unknown display driver: {driver}")
-    def _apply_font(self, font: str) -> None:
-        try:
-            import subprocess
-
-            result = subprocess.run(
-                ["setfont", font],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                err = result.stderr.strip() or result.stdout.strip()
-                log.warning(f"[DISPLAY] setfont failed ({result.returncode}): {err}")
-        except FileNotFoundError:
-            log.warning("[DISPLAY] setfont not found; skipping font change.")
-        except Exception as e:
-            log.warning(f"[DISPLAY] setfont error: {e}")

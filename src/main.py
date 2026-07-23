@@ -20,6 +20,7 @@ import logging
 import os
 import signal
 import shlex
+import socket
 import subprocess
 from pathlib import Path
 from datetime import datetime, timezone
@@ -50,6 +51,7 @@ LOW_BATTERY_SHUTDOWN_CMD = getattr(config, "LOW_BATTERY_SHUTDOWN_CMD", "")
 _stop_requested = False
 _shutdown_reason = "unknown"
 _low_battery_seen = False
+_watchdog_last_sent = 0.0
 
 
 def _now_iso() -> str:
@@ -62,6 +64,38 @@ def _write_marker(path: Path, content: str) -> None:
         path.write_text(content + "\n", encoding="utf-8")
     except Exception as e:
         log.debug(f"[MARKER] Failed to write {path}: {e}")
+
+
+def _sd_notify(message: str) -> None:
+    """
+    Send a message to systemd's notify socket when present.
+    Safe no-op outside systemd.
+    """
+    notify_socket = os.getenv("NOTIFY_SOCKET", "").strip()
+    if not notify_socket:
+        return
+    try:
+        addr = notify_socket
+        if addr.startswith("@"):
+            # Linux abstract namespace UNIX socket
+            addr = "\0" + addr[1:]
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as sock:
+            sock.connect(addr)
+            sock.sendall(message.encode("utf-8"))
+    except Exception as e:
+        log.debug(f"[MAIN] sd_notify failed: {e}")
+
+
+def _watchdog_ping(force: bool = False) -> None:
+    global _watchdog_last_sent
+    watchdog_usec = int(os.getenv("WATCHDOG_USEC", "0") or "0")
+    if watchdog_usec <= 0:
+        return
+    now = time.monotonic()
+    interval = max(1.0, (watchdog_usec / 1_000_000.0) / 2.0)
+    if force or (now - _watchdog_last_sent) >= interval:
+        _sd_notify("WATCHDOG=1")
+        _watchdog_last_sent = now
 
 
 def _request_shutdown(reason: str) -> None:
@@ -238,7 +272,7 @@ def main() -> None:
     # ----------------- USB setpoints sync -----------------
     try:
         if sync_usb_to_local():
-            log.info("[MAIN] USB setpoints updated → local cache refreshed.")
+            log.info("[MAIN] USB setpoints updated -> local cache refreshed.")
         else:
             log.info("[MAIN] USB setpoints already current.")
     except Exception as e:
@@ -270,6 +304,8 @@ def main() -> None:
     last_send_time = time.time()
     depth_warning_logged = False
     last_display_time = 0.0
+    _sd_notify("READY=1\nSTATUS=ControlPod running")
+    _watchdog_ping(force=True)
 
     # =====================================================
     # MAIN LOOP
@@ -278,6 +314,7 @@ def main() -> None:
         while True:
             if _stop_requested:
                 break
+            _watchdog_ping()
             if _low_battery_triggered():
                 if not _low_battery_seen:
                     _low_battery_seen = True
@@ -322,7 +359,7 @@ def main() -> None:
                 depth = max(0.0, adjusted)
 
                 log.info(
-                    f"[ZERO] Applied zero_offset={zero_offset:.3f} ??? "
+                    f"[ZERO] Applied zero_offset={zero_offset:.3f} -> "
                     f"adjusted_depth={depth:.3f} (raw={depth_raw:.3f})"
                 )
             except Exception as e:
@@ -356,7 +393,7 @@ def main() -> None:
             override = is_override_active()
 
             if override:
-                log.info("[OVERRIDE] ACTIVE ??? Pump forced OFF.")
+                log.info("[OVERRIDE] ACTIVE -> Pump forced OFF.")
                 if pump_is_on:
                     pump.turn_off()
                 pump_is_on = False
@@ -364,13 +401,13 @@ def main() -> None:
                 # Normal automatic pump logic
                 if pump_is_on and depth <= stop_depth:
                     log.info(
-                        f"[PUMP] depth={depth:.2f} <= STOP_PUMP_AT={stop_depth:.2f} ??? OFF"
+                        f"[PUMP] depth={depth:.2f} <= STOP_PUMP_AT={stop_depth:.2f} -> OFF"
                     )
                     pump.turn_off()
                     pump_is_on = False
                 elif (not pump_is_on) and depth >= start_depth:
                     log.info(
-                        f"[PUMP] depth={depth:.2f} >= START_PUMP_AT={start_depth:.2f} ??? ON"
+                        f"[PUMP] depth={depth:.2f} >= START_PUMP_AT={start_depth:.2f} -> ON"
                     )
                     pump.turn_on()
                     pump_is_on = True
@@ -471,6 +508,7 @@ def main() -> None:
                     break
                 raise
     finally:
+        _sd_notify(f"STOPPING=1\nSTATUS=Exiting main loop ({_shutdown_reason})")
         _write_marker(SHUTDOWN_PATH, f"{_now_iso()} | exit:{_shutdown_reason}")
         log.warning(f"[MAIN] Exiting main loop: {_shutdown_reason}")
         try:

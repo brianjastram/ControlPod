@@ -4,13 +4,15 @@ After=network-online.target local-fs.target dev-ttyUSB0.device dev-i2c-1.device
 Wants=network-online.target
 
 [Service]
-Type=simple
+Type=notify
 User=pi
 Group=pi
 WorkingDirectory=/home/pi/ControlPod
 ExecStart=/home/pi/ControlPod/env/bin/python -m src.main
 Restart=always
 RestartSec=5
+NotifyAccess=main
+WatchdogSec=90
 StandardOutput=journal
 StandardError=journal
 Environment=PYTHONUNBUFFERED=1
@@ -20,7 +22,7 @@ Environment=LAST_SEND_PATH=/run/controlpod/last_send
 Environment=SHUTDOWN_PATH=/run/controlpod/shutdown
 RuntimeDirectory=controlpod
 RuntimeDirectoryMode=0755
-TimeoutStartSec=30
+TimeoutStartSec=90
 
 [Install]
 WantedBy=multi-user.target

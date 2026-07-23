@@ -22,6 +22,14 @@ The app writes runtime markers to `/run/controlpod` (tmpfs) for post-mortem debu
 - `/run/controlpod/last_send` updated on successful uplink
 - `/run/controlpod/shutdown` updated on clean shutdown or SIGTERM/SIGINT
 
+The systemd unit in this repo also enables watchdog supervision:
+
+- `Type=notify`
+- `WatchdogSec=90`
+
+`src/main.py` sends `READY=1` and periodic `WATCHDOG=1` pings. If the main loop
+blocks (for example, on stalled USB serial I/O), systemd restarts `controlpod.service`.
+
 Optional systemd health check (timer-based restart if heartbeat is stale):
 
 ```bash

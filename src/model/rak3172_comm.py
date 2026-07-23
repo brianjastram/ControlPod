@@ -4,7 +4,13 @@ from typing import List, Optional, Union
 
 
 class RAK3172Communicator:
-    def __init__(self, port: str, baudrate: int = 115200, timeout: int = 1) -> None:
+    def __init__(
+        self,
+        port: str,
+        baudrate: int = 115200,
+        timeout: float = 1.0,
+        write_timeout: float = 1.0,
+    ) -> None:
         """
         Simple UART wrapper for the RAK3172.
 
@@ -18,6 +24,7 @@ class RAK3172Communicator:
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
+        self.write_timeout = write_timeout
         self.ser: Optional[serial.Serial] = None
 
     # ------------------------------------------------------------------
@@ -26,7 +33,12 @@ class RAK3172Communicator:
 
     def connect(self) -> None:
         """Open the serial connection to the RAK3172."""
-        self.ser = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
+        self.ser = serial.Serial(
+            self.port,
+            self.baudrate,
+            timeout=self.timeout,
+            write_timeout=self.write_timeout,
+        )
         print(f"Connected to {self.port} at {self.baudrate} baud.")
 
     def disconnect(self) -> None:
@@ -61,8 +73,11 @@ class RAK3172Communicator:
 
         # Ensure proper line ending and encode
         self.ser.reset_input_buffer()
-        self.ser.write((command + "\r\n").encode("utf-8"))
-        self.ser.flush()
+        try:
+            self.ser.write((command + "\r\n").encode("utf-8"))
+            self.ser.flush()
+        except serial.SerialTimeoutException as e:
+            raise TimeoutError(f"RAK write timeout for command '{command}'") from e
 
         # Read for up to ~2 seconds, line by line
         lines: List[str] = []

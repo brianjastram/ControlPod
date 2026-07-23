@@ -7,6 +7,7 @@ import os
 from typing import Optional
 
 import serial
+from src import config
 
 try:
     import RPi.GPIO as GPIO
@@ -52,6 +53,10 @@ class NumatoPumpController(PumpController):
         else:
             self.alarm_relay_candidates = list(alarm_candidates)
         self._alarm_state: Optional[bool] = None
+        self._serial_timeout = float(getattr(config, "RELAY_SERIAL_TIMEOUT_SEC", 1.0))
+        self._serial_write_timeout = float(
+            getattr(config, "RELAY_SERIAL_WRITE_TIMEOUT_SEC", 1.0)
+        )
 
         if self.alarm_driver == "gpio":
             if GPIO is None:
@@ -72,7 +77,12 @@ class NumatoPumpController(PumpController):
                 return
 
             cmd = (command + "\r").encode()
-            with serial.Serial(dev, 9600, timeout=1) as ser:
+            with serial.Serial(
+                dev,
+                9600,
+                timeout=self._serial_timeout,
+                write_timeout=self._serial_write_timeout,
+            ) as ser:
                 ser.write(cmd)
             log.info(f"[RELAY] Sent '{command}' to {dev}")
         except Exception as e:
@@ -114,7 +124,12 @@ class NumatoPumpController(PumpController):
             log.warning("[RELAY] No relay device available for state check.")
             return False
         try:
-            with serial.Serial(dev, 9600, timeout=1) as ser:
+            with serial.Serial(
+                dev,
+                9600,
+                timeout=self._serial_timeout,
+                write_timeout=self._serial_write_timeout,
+            ) as ser:
                 ser.write(b"relay read 0\r")
                 response = ser.readline().decode(errors="ignore").strip().lower()
             log.info(f"[RELAY] State response: '{response}'")
@@ -136,7 +151,12 @@ class NumatoPumpController(PumpController):
                     self._alarm_state = state
                     return
                 cmd = (command + "\r").encode()
-                with serial.Serial(dev, 9600, timeout=1) as ser:
+                with serial.Serial(
+                    dev,
+                    9600,
+                    timeout=self._serial_timeout,
+                    write_timeout=self._serial_write_timeout,
+                ) as ser:
                     ser.write(cmd)
                 log.info(
                     f"[ALARM] Alarm {'ON' if state else 'OFF'} "
