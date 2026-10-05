@@ -1,0 +1,2 @@
+# Preserve supplied source bytes, including CRLF and original whitespace.
+controlpod-v1.5-v2-handoff-2026-10-05.txt -text whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol

@@ -2,6 +2,13 @@
 
 Control Pod main control program for KCLF, Phase 8B.
 
+### Development direction
+
+The [development roadmap](docs/development-roadmap.md) turns the October 5,
+2026 handoff into prioritized v1.5 reliability work, a monitoring-only pilot
+path, shared NDB integration tasks, and a separate industrial v2 branch plan.
+It records proposed work and acceptance gates; it does not establish field readiness.
+
 ### Authored by:
 Brian Jastram, **Hydrometrix** for Eric Xanderson, **Kandiyohi Co. Land Fill**
 
@@ -12,7 +19,7 @@ Brian Jastram, **Hydrometrix** for Eric Xanderson, **Kandiyohi Co. Land Fill**
 - Uses `/dev/rak` for the RAK3172 LoRaWAN radio (via `rak3172_comm.RAK3172Communicator`)
 - Syncs setpoints from the USB key on startup
 - Applies downlink commands (override, zero, setpoints)
-- Sends JSON telemetry payloads to ChirpStack at `INTERVAL_MINUTES`
+- Sends packed binary telemetry payloads to ChirpStack at `INTERVAL_MINUTES`
 
 ### Reliability / crash diagnostics
 

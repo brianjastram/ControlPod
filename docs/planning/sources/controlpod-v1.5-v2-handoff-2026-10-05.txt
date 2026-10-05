@@ -1,0 +1,122 @@
+Here’s the clean technical handoff from our discussion.
+
+## Control Pod v1.5 — Harden the existing architecture
+
+**Goal:** Keep moving with hardware and software you already have working, while addressing the reliability lessons from the Kandiyohi County deployment.
+
+**Architecture:**
+
+**Field I/O → Raspberry Pi Zero 2 W → NDB → Grafana**
+
+Communications can include **LoRaWAN/ChirpStack**, with the Pi serving as the more capable edge computer.
+
+The v1.5 concept keeps much of the existing Waveshare/USB approach:
+
+- Raspberry Pi Zero 2 W
+- Waveshare USB/Ethernet hub/enclosure hardware
+- Multi-channel relay such as the **Numato 4-channel relay**, rather than the original single-channel approach
+- LoRaWAN radio, potentially LA66 or RAK hardware
+- Existing Control Pod software concepts
+- Connection from the Pi into the **Neutral Data Backbone**, using the same basic data model already being developed with the Mayfly → NDB → Grafana system
+
+### Main v1.5 improvement: USB resilience
+
+Eric's Kandiyohi version suggested that multiple USB serial devices may introduce communication reliability problems or garbled communications.
+
+Rather than redesigning everything immediately, v1.5 would harden USB:
+
+- Stable/persistent device naming rather than relying on `/dev/ttyUSB0`, etc.
+- Separate software service/process ownership for each serial device
+- Good USB power and short, quality connections
+- Automatic service restart/recovery
+- Device/communications watchdogs
+- Local data buffering during communication/network outages
+- Fail-safe behavior if communications are lost
+- Clear separation between telemetry and control commands
+- Command acknowledgement and **commanded state vs. reported state**
+
+This is essentially the **field-hardened evolution of what already exists**.
+
+---
+
+# Control Pod v2 — Pi-based industrial hardwired architecture
+
+**Goal:** Retain the flexibility and computational capability of the Raspberry Pi while removing USB from critical field I/O wherever practical.
+
+The conceptual architecture becomes:
+
+**Sensors / relays / I/O → isolated RS-485/Modbus → Raspberry Pi → NDB → Grafana**
+
+with LoRaWAN handled separately through a more direct hardware interface rather than another USB serial device.
+
+### Physical concept
+
+We discussed something approximately like:
+
+**Raspberry Pi Zero 2 W**  
+↓  
+**Isolated RS-485 interface/HAT**  
+↓  
+**Modbus RTU I/O/relay modules**  
+↓  
+**Pump/control equipment**
+
+And separately:
+
+**Pi UART → LoRaWAN module**
+
+rather than trying to stack multiple conventional HATs that may compete for GPIO pins/interfaces.
+
+The idea was to use **one primary HAT for isolated industrial communications** and connect the LoRaWAN module through an appropriate UART/interface rather than necessarily stacking another full HAT.
+
+### Why RS-485/Modbus?
+
+For landfill field installations, it gives Control Pod v2 a more conventional industrial interface:
+
+- Differential signaling
+- Long cable capability
+- Addressable devices
+- Better noise immunity
+- Easier expansion to multiple I/O devices
+- Isolation can protect the Pi
+- Less dependence on USB enumeration and USB serial drivers
+- Straightforward integration with industrial sensors, relay modules and I/O
+
+Most importantly, **the Raspberry Pi stays**. We're not talking about replacing the Pi with a PLC simply to become more industrial.
+
+The Pi becomes the **edge integration computer**, while ruggedized industrial I/O handles the actual field interface.
+
+---
+
+## One architectural principle shared by both versions
+
+We identified something particularly important for the NDB:
+
+**Grafana shouldn't care whether the measurement originated from a Mayfly, Control Pod v1.5, Control Pod v2, or some future PLC.**
+
+The Pi should publish into the NDB using the same conventions you're developing for Mayfly:
+
+**device/asset identity → measurement → value → units → timestamp → quality/status**
+
+The Pi should also locally buffer data and forward it later with the **original measurement timestamps** following a communications outage.
+
+For control, telemetry and commands should be treated differently. A command should have a lifecycle roughly like:
+
+**requested → received → validated → executed → actual state confirmed**
+
+That prevents "I sent ON" from being treated as equivalent to "the pump is actually ON."
+
+## Development strategy
+
+The distinction we arrived at was essentially:
+
+> **Control Pod v1.5 = make the existing design reliable enough to deploy now.**  
+> **Control Pod v2 = deliberately redesign the field interfaces around isolated, hardwired industrial communications.**
+
+And critically, **don't hold up a potential DEM-CON pilot waiting for v2**. A simple monitoring/read-only application could be an excellent v1.5 deployment, while v2 develops into the standardized Hydrometrix architecture for installations requiring more I/O and control.
+
+From a product standpoint, both should ideally look identical above the edge:
+
+**Control Pod → Neutral Data Backbone → owner applications/dashboards**
+
+That lets you improve the Control Pod hardware underneath without redesigning the NDB or changing the Hydrometrix value proposition.
